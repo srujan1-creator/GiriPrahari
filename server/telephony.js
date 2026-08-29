@@ -53,8 +53,8 @@ function sendTelegramAlert(chatId, alertText, callback) {
 
   const postData = JSON.stringify({
     chat_id: targetChatId,
-    text: `🚨 *GIRI-PRAHARI EMERGENCY LANDSLIDE ALERT*\n\n${alertText}\n\n📞 Target Mobile: ${primaryPhoneNumber}\n⚡ AI Risk Engine: DANGER (87/100)\n\n📍 Sector: Sohra (Cherrapunji)\n🌊 Pore Water Pressure: 91%\n🏔️ Displacement: 14.6mm`,
-    parse_mode: 'Markdown',
+    text: `🚨 <b>GIRI-PRAHARI EMERGENCY LANDSLIDE ALERT</b>\n\n${alertText}\n\n📞 Target Mobile: ${primaryPhoneNumber}\n⚡ AI Risk Engine: DANGER (87/100)\n\n📍 Sector: Sohra (Cherrapunji)\n🌊 Pore Water Pressure: 91%\n🏔️ Displacement: 14.6mm`,
+    parse_mode: 'HTML',
     disable_notification: false,
   });
 
@@ -92,7 +92,7 @@ function sendTelegramMessage(chatId, text) {
   const postData = JSON.stringify({
     chat_id: chatId,
     text: text,
-    parse_mode: 'Markdown',
+    parse_mode: 'HTML',
     reply_markup: {
       keyboard: [
         [{ text: '📍 /status' }, { text: '🚨 /danger' }],
@@ -111,9 +111,22 @@ function sendTelegramMessage(chatId, text) {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData),
     },
-  }, () => {});
+  }, (res) => {
+    let body = '';
+    res.on('data', chunk => body += chunk);
+    res.on('end', () => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        console.log(`[TELEGRAM BOT REPLY SUCCESS] Reply sent to Chat ID ${chatId}`);
+      } else {
+        console.error(`[TELEGRAM BOT REPLY ERROR ${res.statusCode}] ${body}`);
+      }
+    });
+  });
 
-  req.on('error', () => {});
+  req.on('error', (err) => {
+    console.error(`[TELEGRAM REQ ERROR] ${err.message}`);
+  });
+
   req.write(postData);
   req.end();
 }
@@ -131,23 +144,23 @@ function handleTelegramIncomingMessage(msg) {
 
   let replyText = '';
 
-  if (lowerText === '/start' || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey')) {
-    replyText = `👋 *Hello ${userName}! Welcome to GIRI-PRAHARI Sentinel AI Bot.*\n\nI am your 24/7 AI Risk Intelligence Assistant for India's North Eastern Region (NER).\n\n*Quick Commands:*\n📍 /status - View live regional risk summary\n🚨 /danger - List active danger hamlets\n📞 /call - Trigger emergency phone call to +91 6300156232\n🗣️ /dialects - Supported regional languages\n\n*Or ask me any question!* e.g., "Is Sohra safe?", "What is Mangan risk score?", "How does InSAR work?"`;
+  if (lowerText === '/start' || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey') || lowerText.includes('hlo')) {
+    replyText = `👋 <b>Hello ${userName}! Welcome to GIRI-PRAHARI Sentinel AI Bot.</b>\n\nI am your 24/7 AI Risk Intelligence Assistant for India's North Eastern Region (NER).\n\n<b>Quick Commands:</b>\n📍 /status - View live regional risk summary\n🚨 /danger - List active danger hamlets\n📞 /call - Trigger emergency phone call to +91 6300156232\n🗣️ /dialects - Supported regional languages\n\n<b>Or ask me any question!</b> e.g., "Is Sohra safe?", "What is Mangan risk score?", "How does InSAR work?"`;
   } else if (lowerText.includes('/status') || lowerText.includes('status') || lowerText.includes('summary')) {
-    replyText = `📊 *GIRI-PRAHARI Live Risk Summary (NER Region)*\n\n🟢 *Safe Hamlets*: 25 Nodes\n🟡 *Watch Hamlets*: 4 Nodes\n🔴 *Danger Slopes*: 8 Nodes\n\n⚡ *Highest Risk*: Mangan, Sikkim (89/100) & Sohra, Meghalaya (87/100)\n🌊 *Monsoon Saturation*: 91% pore water pressure recorded\n📡 *Network*: LoRaWAN Mesh active across all 8 NER states.`;
+    replyText = `📊 <b>GIRI-PRAHARI Live Risk Summary (NER Region)</b>\n\n🟢 <b>Safe Hamlets</b>: 25 Nodes\n🟡 <b>Watch Hamlets</b>: 4 Nodes\n🔴 <b>Danger Slopes</b>: 8 Nodes\n\n⚡ <b>Highest Risk</b>: Mangan, Sikkim (89/100) & Sohra, Meghalaya (87/100)\n🌊 <b>Monsoon Saturation</b>: 91% pore water pressure recorded\n📡 <b>Network</b>: LoRaWAN Mesh active across all 8 NER states.`;
   } else if (lowerText.includes('/danger') || lowerText.includes('danger') || lowerText.includes('risk')) {
-    replyText = `🚨 *Active High-Risk Danger Slopes*:\n\n1. 🔴 *Sohra (Meghalaya)*: 87/100 · Creep: 14.6mm · IVR Active (Khasi/Pnar)\n2. 🔴 *Mangan (Sikkim)*: 89/100 · Creep: 15.4mm · Outdoor Siren Active\n3. 🔴 *Haflong (Assam)*: 85/100 · Creep: 13.9mm · Rain: 210mm/24h\n4. 🔴 *Tawang (Arunachal)*: 83/100 · Creep: 12.8mm · Monastery Rift\n5. 🔴 *Ukhrul (Manipur)*: 81/100 · Creep: 12.1mm · Tangkhul Alert\n\nType /call to dispatch an immediate emergency phone call!`;
+    replyText = `🚨 <b>Active High-Risk Danger Slopes</b>:\n\n1. 🔴 <b>Sohra (Meghalaya)</b>: 87/100 · Creep: 14.6mm · IVR Active (Khasi/Pnar)\n2. 🔴 <b>Mangan (Sikkim)</b>: 89/100 · Creep: 15.4mm · Outdoor Siren Active\n3. 🔴 <b>Haflong (Assam)</b>: 85/100 · Creep: 13.9mm · Rain: 210mm/24h\n4. 🔴 <b>Tawang (Arunachal)</b>: 83/100 · Creep: 12.8mm · Monastery Rift\n5. 🔴 <b>Ukhrul (Manipur)</b>: 81/100 · Creep: 12.1mm · Tangkhul Alert\n\nType /call to dispatch an immediate emergency phone call!`;
   } else if (lowerText.includes('/call') || lowerText.includes('call') || lowerText.includes('sos') || lowerText.includes('dial')) {
-    replyText = `📞 *EMERGENCY PHONE CALL & ALERT DISPATCHED!*\n\nTarget Mobile: +91 6300156232\nStatus: Ringing PSTN/GSM gateway...\nScript: "ATTENTION VILLAGERS: CRITICAL LANDSLIDE DETECTED AT THRESHOLD 87/100. EVACUATE IMMEDIATELY."`;
+    replyText = `📞 <b>EMERGENCY PHONE CALL & ALERT DISPATCHED!</b>\n\nTarget Mobile: +91 6300156232\nStatus: Ringing PSTN/GSM gateway...\nScript: "ATTENTION VILLAGERS: CRITICAL LANDSLIDE DETECTED AT THRESHOLD 87/100. EVACUATE IMMEDIATELY."`;
     sendTelegramAlert(chatId, `Emergency call manually triggered via Telegram Bot by ${userName}`);
   } else if (lowerText.includes('sohra') || lowerText.includes('cherrapunji') || lowerText.includes('meghalaya')) {
-    replyText = `📍 *Sohra (Cherrapunji, Meghalaya) Telemetry*:\n\n🔴 *Risk Score*: 87/100 (DANGER)\n🏔️ *Sub-surface Creep*: 14.6mm\n🌧️ *Rainfall (24h)*: 245mm\n🌊 *Soil Moisture*: 91% Saturation\n🗣️ *Active IVR Dialect*: Khasi & Pnar\n\n⚠️ Evacuation recommendation placed!`;
+    replyText = `📍 <b>Sohra (Cherrapunji, Meghalaya) Telemetry</b>:\n\n🔴 <b>Risk Score</b>: 87/100 (DANGER)\n🏔️ <b>Sub-surface Creep</b>: 14.6mm\n🌧️ <b>Rainfall (24h)</b>: 245mm\n🌊 <b>Soil Moisture</b>: 91% Saturation\n🗣️ <b>Active IVR Dialect</b>: Khasi & Pnar\n\n⚠️ Evacuation recommendation placed!`;
   } else if (lowerText.includes('mangan') || lowerText.includes('sikkim')) {
-    replyText = `📍 *Mangan North Highway (Sikkim) Telemetry*:\n\n🔴 *Risk Score*: 89/100 (CRITICAL DANGER)\n🏔️ *Sub-surface Creep*: 15.4mm\n🌧️ *Rainfall (24h)*: 280mm\n🚨 *Status*: Outdoor alarm sirens active. Evacuation in progress.`;
+    replyText = `📍 <b>Mangan North Highway (Sikkim) Telemetry</b>:\n\n🔴 <b>Risk Score</b>: 89/100 (CRITICAL DANGER)\n🏔️ <b>Sub-surface Creep</b>: 15.4mm\n🌧️ <b>Rainfall (24h)</b>: 280mm\n🚨 <b>Status</b>: Outdoor alarm sirens active. Evacuation in progress.`;
   } else if (lowerText.includes('dialects') || lowerText.includes('language') || lowerText.includes('/dialects')) {
-    replyText = `🗣️ *GIRI-PRAHARI Language & Dialect Core*:\n\nSupports 44+ languages including Khasi, Pnar, Assamese, Mizo, Hmar, Nyishi, Apatani, Galo, Adi, Garo, Manipuri, Nagamese, Angami, Ao, Sumi, Lotha, Konyak, Kokborok, Bodo, Karbi, Lepcha, Bhutia, Hindi, and English!`;
+    replyText = `🗣️ <b>GIRI-PRAHARI Language & Dialect Core</b>:\n\nSupports 44+ languages including Khasi, Pnar, Assamese, Mizo, Hmar, Nyishi, Apatani, Galo, Adi, Garo, Manipuri, Nagamese, Angami, Ao, Sumi, Lotha, Konyak, Kokborok, Bodo, Karbi, Lepcha, Bhutia, Hindi, and English!`;
   } else {
-    replyText = `🤖 *GIRI-PRAHARI Sentinel AI Response*:\n\nThank you for reaching out, ${userName}! Regarding "${text}":\n\nOur hybrid sentinel network continuously monitors ground vibration, satellite InSAR displacement, and community volunteer reports across all 8 NER states.\n\nType /status for live risk summary or /call to trigger an emergency voice call!`;
+    replyText = `🤖 <b>GIRI-PRAHARI Sentinel AI Response</b>:\n\nThank you for reaching out, ${userName}! Regarding "${text}":\n\nOur hybrid sentinel network continuously monitors ground vibration, satellite InSAR displacement, and community volunteer reports across all 8 NER states.\n\nType /status for live risk summary or /call to trigger an emergency voice call!`;
   }
 
   sendTelegramMessage(chatId, replyText);
