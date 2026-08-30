@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { X, PhoneCall, Radio, ShieldAlert, Mic, Phone, AlertCircle } from 'lucide-react';
+import type { Language } from '../types';
+import { safeFetch } from '../services/apiClient';
+import { logIncident } from '../services/supabaseClient';
 import { LANGUAGES, HAMLET_ZONES, DEFAULT_DEMO_PHONE_NUMBER } from '../services/riskData';
 import { TRANSLATIONS } from '../services/translations';
 import { IncomingCallModal } from './IncomingCallModal';
-import type { Language } from '../types';
 
 interface EmergencySOSModalProps {
   isOpen: boolean;
@@ -35,8 +37,15 @@ export const EmergencySOSModal: React.FC<EmergencySOSModalProps> = ({
     const scriptText = t.scriptPreview.replace('Sohra', currentHamlet.name);
 
     try {
-      // Attempt backend REST dispatch to telephony dispatcher (Twilio / Exotel gateway)
-      const res = await fetch('http://localhost:3001/api/call', {
+      // 1. Log incident to Database (Supabase / LocalStorage fallback)
+      await logIncident({
+        location: currentHamlet.name,
+        riskScore: currentHamlet.riskScore,
+        alertType: 'MANUAL_SOS_CALL',
+      });
+
+      // 2. Attempt backend REST dispatch to telephony dispatcher (Twilio / Exotel gateway)
+      const res = await safeFetch('http://localhost:3001/api/call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
