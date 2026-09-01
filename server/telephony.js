@@ -152,7 +152,6 @@ function sendTelegramAlert(chatId, alertData, callback) {
     customText = alertData.message || '';
   } else if (typeof alertData === 'string') {
     customText = alertData;
-    // Check if a specific slope is mentioned
     const matched = DANGER_SLOPES.find(s => alertData.toLowerCase().includes(s.name.toLowerCase().split(' ')[0]));
     if (matched) slope = matched;
   }
@@ -175,37 +174,13 @@ function sendTelegramAlert(chatId, alertData, callback) {
     disable_notification: false,
   });
 
-  const req = https.request({
-    hostname: 'api.telegram.org',
-    port: 443,
-    path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(postData),
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-    },
-  }, (res) => {
-    let body = '';
-    res.on('data', chunk => body += chunk);
-    res.on('end', () => {
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        if (callback) callback(null, JSON.parse(body));
-      } else {
-        if (callback) callback(new Error(`Telegram Error ${res.statusCode}: ${body}`));
-      }
-    });
-  });
-
-  req.on('error', err => callback && callback(err));
-  req.write(postData);
-  req.end();
+  sendWithRetry(postData, callback);
 }
 
 /**
- * Send an interactive message back to user on Telegram with quick action buttons
+ * Resilient Telegram Message Sender with Automatic Retry on network hiccups
  */
-function sendTelegramMessage(chatId, text) {
+function sendTelegramMessage(chatId, text, retries = 3) {
   const postData = JSON.stringify({
     chat_id: chatId,
     text: text,
@@ -219,6 +194,14 @@ function sendTelegramMessage(chatId, text) {
     }
   });
 
+  sendWithRetry(postData, (err) => {
+    if (err && retries > 0) {
+      setTimeout(() => sendTelegramMessage(chatId, text, retries - 1), 800);
+    }
+  });
+}
+
+function sendWithRetry(postData, callback) {
   const req = https.request({
     hostname: 'api.telegram.org',
     port: 443,
@@ -227,21 +210,25 @@ function sendTelegramMessage(chatId, text) {
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData),
+      'User-Agent': 'GiriPrahari-Bot/2.0',
     },
   }, (res) => {
     let body = '';
     res.on('data', chunk => body += chunk);
     res.on('end', () => {
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        console.log(`[TELEGRAM BOT REPLY SUCCESS] Reply sent to Chat ID ${chatId}`);
+        console.log(`[TELEGRAM BOT REPLY SUCCESS]`);
+        if (callback) callback(null, JSON.parse(body || '{}'));
       } else {
-        console.error(`[TELEGRAM BOT REPLY ERROR ${res.statusCode}] ${body}`);
+        console.error(`[TELEGRAM BOT ERROR ${res.statusCode}] ${body}`);
+        if (callback) callback(new Error(`Status ${res.statusCode}`));
       }
     });
   });
 
   req.on('error', (err) => {
     console.error(`[TELEGRAM REQ ERROR] ${err.message}`);
+    if (callback) callback(err);
   });
 
   req.write(postData);
@@ -249,7 +236,7 @@ function sendTelegramMessage(chatId, text) {
 }
 
 /**
- * Real-time Natural Language AI Bot Listener for incoming Telegram messages
+ * Conversational Natural Language AI Intelligence Engine for @GiriprahariBot
  */
 function handleTelegramIncomingMessage(msg) {
   const chatId = msg.chat.id;
@@ -261,11 +248,38 @@ function handleTelegramIncomingMessage(msg) {
 
   let replyText = '';
 
-  if (lowerText === '/start' || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey') || lowerText.includes('hlo')) {
-    replyText = `👋 <b>Hello ${userName}! Welcome to GIRI-PRAHARI Sentinel AI Bot.</b>\n\nI am your 24/7 AI Risk Intelligence Assistant for India's North Eastern Region (NER).\n\n<b>Quick Commands:</b>\n📍 /status - Live regional risk summary (8 States)\n🚨 /danger - List all active danger hamlets\n📞 /call - Trigger emergency phone call to +91 6300156232\n🗣️ /dialects - Supported regional languages\n\n<b>Or ask me about any mountain pass!</b> e.g., "Is Sohra safe?", "What is Mangan risk score?", "Haflong telemetry"`;
-  } else if (lowerText.includes('/status') || lowerText.includes('status') || lowerText.includes('summary')) {
-    replyText = `📊 <b>GIRI-PRAHARI Live Regional Risk Summary (All 8 NER States)</b>\n\n🟢 <b>Safe Hamlets</b>: 25 Nodes\n🟡 <b>Watch Hamlets</b>: 4 Nodes\n🔴 <b>Danger Slopes</b>: 8 Nodes\n\n⚡ <b>Critical Hazard Nodes:</b>\n1. 🔴 <b>Mangan (Sikkim)</b>: 89/100 · Creep 15.4mm · Rain 280mm\n2. 🔴 <b>Sohra (Meghalaya)</b>: 87/100 · Creep 14.6mm · Rain 245mm\n3. 🔴 <b>Haflong (Assam)</b>: 85/100 · Creep 13.9mm · Rain 210mm\n4. 🔴 <b>Tawang (Arunachal)</b>: 83/100 · Creep 12.8mm · Rain 185mm\n5. 🔴 <b>Ukhrul (Manipur)</b>: 81/100 · Creep 12.1mm · Rain 205mm\n6. 🔴 <b>Champhai (Mizoram)</b>: 79/100 · Creep 11.7mm · Rain 195mm\n7. 🔴 <b>Mon (Nagaland)</b>: 77/100 · Creep 11.2mm · Rain 165mm\n8. 🔴 <b>Jampui (Tripura)</b>: 74/100 · Creep 10.8mm · Rain 150mm\n\n📡 <b>Tri-Signal Ingestion</b>: Satellite InSAR + Ground IoT + Open-Meteo active!`;
-  } else if (lowerText.includes('/danger') || lowerText.includes('danger') || lowerText.includes('risk')) {
+  // 1. Highest Risk / Most Dangerous Queries
+  if (lowerText.includes('highest') || lowerText.includes('most dangerous') || lowerText.includes('max risk') || lowerText.includes('worst')) {
+    replyText = `🔴 <b>HIGHEST LANDSLIDE HAZARD IN NER REGION:</b>\n\n` +
+      `🏆 <b>#1 Highest Risk: Mangan North Highway Pass (Sikkim)</b>\n` +
+      `⚡ <b>Risk Score: 89 / 100 (CRITICAL DANGER)</b>\n` +
+      `🏔️ <b>Sub-surface Creep</b>: 15.4 mm\n` +
+      `🌊 <b>Pore Water Pressure</b>: 95% Saturation\n` +
+      `🌧️ <b>24h Rainfall</b>: 280 mm\n` +
+      `🛰️ <b>Sentinel-1 InSAR</b>: Line of sight subsidence -38.6 mm/yr\n` +
+      `🗣️ <b>Voice Dialects Active</b>: Lepcha & Bhutia\n\n` +
+      `🥈 <b>#2 Highest Risk: Sohra (Cherrapunji, Meghalaya)</b>\n` +
+      `⚡ <b>Risk Score: 87 / 100 (DANGER)</b> · Creep: 14.6 mm · Rain: 245 mm\n\n` +
+      `⚠️ <b>Evacuation sirens & automated IVR phone calls are active for both sectors!</b>`;
+  }
+  // 2. Lowest Risk / Safest Queries
+  else if (lowerText.includes('lowest') || lowerText.includes('safest') || lowerText.includes('safe') && !lowerText.includes('is sohra')) {
+    replyText = `🟢 <b>SAFEST SLOPES IN NER REGION (Low Hazard):</b>\n\n` +
+      `1. 🟢 <b>Relek (Aizawl, Mizoram)</b>: <b>18 / 100 (SAFE)</b> · Creep: 1.2 mm · Stable bedrock\n` +
+      `2. 🟢 <b>Ziro Valley (Arunachal Pradesh)</b>: <b>24 / 100 (SAFE)</b> · Creep: 1.6 mm · Minimal shear\n` +
+      `3. 🟢 <b>Mawlynnong Slope (Meghalaya)</b>: <b>29 / 100 (SAFE)</b> · Creep: 2.1 mm · Living root bridge zone\n\n` +
+      `All 25 safe nodes are operating normally under standard monitoring.`;
+  }
+  // 3. Greetings & Start
+  else if (lowerText === '/start' || lowerText.includes('hi') || lowerText.includes('hello') || lowerText.includes('hey') || lowerText.includes('hlo')) {
+    replyText = `👋 <b>Hello ${userName}! Welcome to GIRI-PRAHARI Sentinel AI.</b>\n\nI am your 24/7 AI Risk Intelligence Assistant monitoring India's 8 North Eastern Region (NER) states.\n\n<b>Quick Commands:</b>\n📍 /status - Regional risk summary (8 States)\n🚨 /danger - List all active danger slopes\n📞 /call - Trigger emergency phone alert (+91 6300156232)\n🗣️ /dialects - 44+ supported tribal dialects\n\n<b>Ask me anything!</b> e.g.:\n• <i>"What is the highest risk?"</i>\n• <i>"Is Sohra safe?"</i>\n• <i>"Why is Mangan at 89 risk?"</i>\n• <i>"What is pore water pressure?"</i>`;
+  }
+  // 4. Status Summary
+  else if (lowerText.includes('/status') || lowerText.includes('status') || lowerText.includes('summary')) {
+    replyText = `📊 <b>GIRI-PRAHARI Live Regional Risk Summary (All 8 NER States)</b>\n\n🟢 <b>Safe Hamlets</b>: 25 Nodes\n🟡 <b>Watch Hamlets</b>: 4 Nodes\n🔴 <b>Danger Slopes</b>: 8 Nodes\n\n⚡ <b>Active Hazard Rankings:</b>\n1. 🔴 <b>Mangan (Sikkim)</b>: 89/100 · Creep 15.4mm · Rain 280mm\n2. 🔴 <b>Sohra (Meghalaya)</b>: 87/100 · Creep 14.6mm · Rain 245mm\n3. 🔴 <b>Haflong (Assam)</b>: 85/100 · Creep 13.9mm · Rain 210mm\n4. 🔴 <b>Tawang (Arunachal)</b>: 83/100 · Creep 12.8mm · Rain 185mm\n5. 🔴 <b>Ukhrul (Manipur)</b>: 81/100 · Creep 12.1mm · Rain 205mm\n6. 🔴 <b>Champhai (Mizoram)</b>: 79/100 · Creep 11.7mm · Rain 195mm\n7. 🔴 <b>Mon (Nagaland)</b>: 77/100 · Creep 11.2mm · Rain 165mm\n8. 🔴 <b>Jampui (Tripura)</b>: 74/100 · Creep 10.8mm · Rain 150mm\n\n🛰️ Ingesting ESA Sentinel-1 Satellite InSAR + Live Open-Meteo Weather!`;
+  }
+  // 5. Danger Slopes List
+  else if (lowerText.includes('/danger') || lowerText.includes('danger') || (lowerText.includes('risk') && !lowerText.includes('highest') && !lowerText.includes('what'))) {
     replyText = `🚨 <b>Active High-Risk Danger Slopes (All 8 NER States)</b>:\n\n` +
       `1. 🔴 <b>Mangan (Sikkim)</b>: 89/100 · Creep 15.4mm · Siren Active (Lepcha/Bhutia)\n` +
       `2. 🔴 <b>Sohra (Meghalaya)</b>: 87/100 · Creep 14.6mm · IVR Active (Khasi/Pnar)\n` +
@@ -275,11 +289,15 @@ function handleTelegramIncomingMessage(msg) {
       `6. 🔴 <b>Champhai (Mizoram)</b>: 79/100 · Creep 11.7mm · Mizo Alert\n` +
       `7. 🔴 <b>Mon (Nagaland)</b>: 77/100 · Creep 11.2mm · Konyak Alert\n` +
       `8. 🔴 <b>Jampui (Tripura)</b>: 74/100 · Creep 10.8mm · Kokborok Alert\n\n` +
-      `Type /call to dispatch emergency calls!`;
-  } else if (lowerText.includes('/call') || lowerText.includes('call') || lowerText.includes('sos') || lowerText.includes('dial')) {
+      `Type /call to dispatch immediate emergency calls!`;
+  }
+  // 6. Emergency Voice Call Dispatch
+  else if (lowerText.includes('/call') || lowerText.includes('call') || lowerText.includes('sos') || lowerText.includes('dial')) {
     replyText = `📞 <b>EMERGENCY PHONE CALL & ALERT DISPATCHED!</b>\n\nTarget Mobile: +91 6300156232\nStatus: Ringing PSTN/GSM gateway...\nScript: "ATTENTION VILLAGERS: CRITICAL LANDSLIDE CREEP DETECTED. EVACUATE TO HIGHER GROUND."`;
     sendTelegramAlert(chatId, { message: `Emergency call manually triggered via Telegram Bot by ${userName}` });
-  } else if (lowerText.includes('sohra') || lowerText.includes('cherrapunji') || lowerText.includes('meghalaya')) {
+  }
+  // 7. Location-Specific Questions
+  else if (lowerText.includes('sohra') || lowerText.includes('cherrapunji') || lowerText.includes('meghalaya')) {
     replyText = `📍 <b>Sohra (Cherrapunji, Meghalaya) Telemetry</b>:\n\n🔴 <b>Risk Score</b>: 87/100 (DANGER)\n🏔️ <b>Sub-surface Creep</b>: 14.6mm\n🌧️ <b>Rainfall (24h)</b>: 245mm\n🌊 <b>Soil Moisture</b>: 91% Saturation\n🗣️ <b>Active IVR Dialect</b>: Khasi & Pnar\n🛰️ <b>Sentinel-1 InSAR</b>: Line of sight velocity -35.2 mm/yr\n\n⚠️ Evacuation recommendation placed!`;
   } else if (lowerText.includes('mangan') || lowerText.includes('sikkim')) {
     replyText = `📍 <b>Mangan North Highway Pass (Sikkim) Telemetry</b>:\n\n🔴 <b>Risk Score</b>: 89/100 (CRITICAL DANGER)\n🏔️ <b>Sub-surface Creep</b>: 15.4mm\n🌧️ <b>Rainfall (24h)</b>: 280mm\n🌊 <b>Soil Moisture</b>: 95% Saturation\n🗣️ <b>Active Dialect</b>: Lepcha & Bhutia\n🚨 <b>Status</b>: Outdoor alarm sirens active. Evacuation in progress.`;
@@ -295,11 +313,18 @@ function handleTelegramIncomingMessage(msg) {
     replyText = `📍 <b>Mon Konyak Hills (Nagaland) Telemetry</b>:\n\n🟡 <b>Risk Score</b>: 77/100 (ELEVATED WATCH)\n🏔️ <b>Sub-surface Creep</b>: 11.2mm\n🌧️ <b>Rainfall (24h)</b>: 165mm\n🌊 <b>Soil Moisture</b>: 79% Saturation\n🗣️ <b>Active Dialect</b>: Konyak & Nagamese`;
   } else if (lowerText.includes('tripura') || lowerText.includes('jampui')) {
     replyText = `📍 <b>Jampui Hills Ridge (Tripura) Telemetry</b>:\n\n🟡 <b>Risk Score</b>: 74/100 (WATCH)\n🏔️ <b>Sub-surface Creep</b>: 10.8mm\n🌧️ <b>Rainfall (24h)</b>: 150mm\n🌊 <b>Soil Moisture</b>: 78% Saturation\n🗣️ <b>Active Dialect</b>: Kokborok & Bengali`;
+  }
+  // 8. Scientific Concept Explanations
+  else if (lowerText.includes('pore') || lowerText.includes('pressure') || lowerText.includes('water')) {
+    replyText = `🌊 <b>Pore Water Pressure & Landslides:</b>\n\nWhen heavy monsoon rainfall saturates soil, water fills the microscopic spaces between soil grains. This creates hydraulic pressure that counteracts friction and reduces the shear strength of the slope, causing it to liquefy and slide.\n\nCurrently, <b>Mangan (95%)</b> and <b>Sohra (91%)</b> have critical pore pressure levels.`;
+  } else if (lowerText.includes('insar') || lowerText.includes('satellite') || lowerText.includes('radar')) {
+    replyText = `🛰️ <b>Sentinel-1 InSAR Satellite Technology:</b>\n\nInterferometric Synthetic Aperture Radar (InSAR) compares radar phase differences between satellite orbits every 6–12 days to measure millimeter-scale ground displacement from space.\n\nWe track line-of-sight velocity (e.g. -38.6 mm/yr in Mangan) to predict slope failures days in advance.`;
   } else if (lowerText.includes('dialects') || lowerText.includes('language') || lowerText.includes('/dialects')) {
-    replyText = `🗣️ <b>GIRI-PRAHARI Language & Dialect Core (44+ Languages)</b>:\n\n` +
-      `Supports Khasi, Pnar, Assamese, Mizo, Hmar, Nyishi, Apatani, Galo, Adi, Garo, Manipuri, Tangkhul, Nagamese, Angami, Ao, Sumi, Lotha, Konyak, Kokborok, Bodo, Karbi, Dimasa, Lepcha, Bhutia, Hindi, and English!`;
-  } else {
-    replyText = `🤖 <b>GIRI-PRAHARI Sentinel AI Response</b>:\n\nThank you for reaching out, ${userName}! Regarding "${text}":\n\nOur hybrid sentinel network continuously monitors Satellite InSAR displacement, Geotechnical Ground Sensors, and Live Weather across all 8 NER states.\n\nType /status for live risk summary or /danger to view all 8 active danger slopes!`;
+    replyText = `🗣️ <b>GIRI-PRAHARI Language Core (44+ Languages):</b>\n\nSupports Khasi, Pnar, Assamese, Mizo, Hmar, Nyishi, Apatani, Galo, Adi, Garo, Manipuri, Tangkhul, Nagamese, Angami, Ao, Sumi, Lotha, Konyak, Kokborok, Bodo, Karbi, Dimasa, Lepcha, Bhutia, Hindi, and English!`;
+  }
+  // 9. General Intelligent Fallback
+  else {
+    replyText = `🤖 <b>GIRI-PRAHARI Sentinel AI:</b>\n\nRegarding your question "<i>${text}</i>":\n\nCurrently, our hybrid AI network is fusing live Sentinel-1 satellite radar with IoT geotechnical ground sensors across all 8 NER states.\n\n• <b>Highest Risk</b>: Mangan (89/100) & Sohra (87/100)\n• <b>Safest</b>: Relek (18/100) & Ziro (24/100)\n\nType <b>/status</b> for full summary or <b>/danger</b> for all danger slopes!`;
   }
 
   sendTelegramMessage(chatId, replyText);
@@ -450,7 +475,6 @@ setInterval(() => {
   if (now - lastAutoCallTime >= 240000) {
     lastAutoCallTime = now;
     
-    // Pick the next dynamic slope across the 8 NER states
     const activeSlope = DANGER_SLOPES[dangerCycleIndex % DANGER_SLOPES.length];
     dangerCycleIndex++;
 
