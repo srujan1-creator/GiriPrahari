@@ -29,6 +29,7 @@ import { ExplainableAIModal } from '../components/ExplainableAIModal';
 import { AutoDialerWidget } from '../components/AutoDialerWidget';
 import { syncNodesWithRealLiveData } from '../services/realDataService';
 import { logContinuousTelemetry, getContinuousTelemetry, exportTelemetryCSV, type TelemetryRecord } from '../services/supabaseClient';
+import { generateComprehensiveTelemetry, streamAllMultiSignalDataToDatabase, type ComprehensiveNodeTelemetry } from '../services/unifiedDataPipeline';
 
 interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
@@ -90,7 +91,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isRealDataSyncing, setIsRealDataSyncing] = useState(false);
   const [realDataLastSync, setRealDataLastSync] = useState<string>('Live Streaming');
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [selectedDataTab, setSelectedDataTab] = useState<'all' | 'satellite' | 'ground' | 'weather' | 'ai'>('all');
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryRecord[]>(() => getContinuousTelemetry());
+  const [multiSignalData, setMultiSignalData] = useState<ComprehensiveNodeTelemetry[]>([]);
 
   const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
@@ -100,29 +103,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   const dangerNodes = nodes.filter(n => n.status === 'DANGER');
 
-  // Real Live Meteorological & Satellite Data Ingestion (Open-Meteo API)
+  // Real Multi-Signal Data Ingestion (Satellite InSAR + Ground IoT + Open-Meteo Weather)
   useEffect(() => {
     let isMounted = true;
 
-    const ingestRealData = async () => {
+    const ingestComprehensiveData = async () => {
       setIsRealDataSyncing(true);
       try {
-        const synced = await syncNodesWithRealLiveData(nodes);
+        const fullStream = await generateComprehensiveTelemetry();
+        const syncedNodes = await syncNodesWithRealLiveData(nodes);
+
         if (isMounted) {
-          setNodes(synced);
+          setNodes(syncedNodes);
+          setMultiSignalData(fullStream);
           setRealDataLastSync(new Date().toLocaleTimeString());
-          await logContinuousTelemetry(synced);
+          await streamAllMultiSignalDataToDatabase(fullStream);
+          await logContinuousTelemetry(syncedNodes);
           setTelemetryLogs(getContinuousTelemetry());
         }
       } catch (err) {
-        console.warn('[RealData] Sync notice:', err);
+        console.warn('[MultiSignal Pipeline] Sync notice:', err);
       } finally {
         if (isMounted) setIsRealDataSyncing(false);
       }
     };
 
-    ingestRealData();
-    const interval = setInterval(ingestRealData, 20000);
+    ingestComprehensiveData();
+    const interval = setInterval(ingestComprehensiveData, 20000);
 
     return () => {
       isMounted = false;
@@ -879,48 +886,154 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </div>
             </div>
 
+            {/* Multi-Stream Tab Switcher */}
+            <div className="flex items-center gap-2 mb-3 bg-slate-900/90 p-1 rounded-xl border border-white/10 text-xs font-semibold overflow-x-auto">
+              <button
+                onClick={() => setSelectedDataTab('all')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  selectedDataTab === 'all' ? 'bg-purple-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🌐 Unified All-Stream Telemetry
+              </button>
+              <button
+                onClick={() => setSelectedDataTab('satellite')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  selectedDataTab === 'satellite' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🛰️ Satellite InSAR Radar Stream
+              </button>
+              <button
+                onClick={() => setSelectedDataTab('ground')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  selectedDataTab === 'ground' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🌱 Geotechnical Ground IoT Stream
+              </button>
+              <button
+                onClick={() => setSelectedDataTab('weather')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  selectedDataTab === 'weather' ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🌧️ Live Open-Meteo Weather Stream
+              </button>
+            </div>
+
             {/* Live Continuous Telemetry Table */}
             <div className="flex-1 overflow-y-auto border border-white/10 rounded-xl bg-slate-950/60 font-mono text-xs">
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-slate-900 text-slate-400 text-[10px] uppercase border-b border-white/10">
-                  <tr>
-                    <th className="p-2.5">Time</th>
-                    <th className="p-2.5">Node Sector</th>
-                    <th className="p-2.5">State</th>
-                    <th className="p-2.5 text-center">Risk</th>
-                    <th className="p-2.5 text-center">Pore Water</th>
-                    <th className="p-2.5 text-center">Creep</th>
-                    <th className="p-2.5 text-center">24h Rain</th>
-                    <th className="p-2.5 text-center">Status</th>
-                  </tr>
+                  {selectedDataTab === 'satellite' ? (
+                    <tr>
+                      <th className="p-2.5">Node Sector</th>
+                      <th className="p-2.5">State</th>
+                      <th className="p-2.5">Mission</th>
+                      <th className="p-2.5 text-center">LOS Velocity</th>
+                      <th className="p-2.5 text-center">Displacement</th>
+                      <th className="p-2.5 text-center">Coherence</th>
+                      <th className="p-2.5 text-center">Track / Pol</th>
+                    </tr>
+                  ) : selectedDataTab === 'ground' ? (
+                    <tr>
+                      <th className="p-2.5">Node Sector</th>
+                      <th className="p-2.5">Piezometer kPa</th>
+                      <th className="p-2.5 text-center">Pore %</th>
+                      <th className="p-2.5 text-center">Tilt Deg</th>
+                      <th className="p-2.5 text-center">Micro-Creep</th>
+                      <th className="p-2.5 text-center">Vibration Hz</th>
+                      <th className="p-2.5 text-center">LoRa RSSI</th>
+                    </tr>
+                  ) : selectedDataTab === 'weather' ? (
+                    <tr>
+                      <th className="p-2.5">Node Sector</th>
+                      <th className="p-2.5">State</th>
+                      <th className="p-2.5 text-center">Temp °C</th>
+                      <th className="p-2.5 text-center">Humidity %</th>
+                      <th className="p-2.5 text-center">Rain Rate</th>
+                      <th className="p-2.5 text-center">24h Rain</th>
+                      <th className="p-2.5 text-center">Soil Moisture</th>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <th className="p-2.5">Time</th>
+                      <th className="p-2.5">Node Sector</th>
+                      <th className="p-2.5">State</th>
+                      <th className="p-2.5 text-center">Risk</th>
+                      <th className="p-2.5 text-center">Pore Water</th>
+                      <th className="p-2.5 text-center">Creep</th>
+                      <th className="p-2.5 text-center">24h Rain</th>
+                      <th className="p-2.5 text-center">Status</th>
+                    </tr>
+                  )}
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {telemetryLogs.slice(0, 50).map((record) => (
-                    <tr key={record.id} className="hover:bg-slate-900/60 transition-colors">
-                      <td className="p-2.5 text-slate-400 text-[11px]">
-                        {new Date(record.timestamp).toLocaleTimeString()}
-                      </td>
-                      <td className="p-2.5 font-sans font-medium text-white">{record.nodeName}</td>
-                      <td className="p-2.5 text-slate-300 font-sans">{record.state}</td>
-                      <td className="p-2.5 text-center font-bold text-purple-400">{record.riskScore}/100</td>
-                      <td className="p-2.5 text-center text-blue-400 font-bold">{record.porePressure}%</td>
-                      <td className="p-2.5 text-center text-amber-400 font-bold">{record.creepRate}mm</td>
-                      <td className="p-2.5 text-center text-cyan-400 font-bold">{record.rainfall24h}mm</td>
-                      <td className="p-2.5 text-center">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                            record.status === 'DANGER'
-                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              : record.status === 'WATCH'
-                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          }`}
-                        >
-                          {record.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {selectedDataTab === 'satellite' ? (
+                    multiSignalData.map((d) => (
+                      <tr key={d.nodeId} className="hover:bg-slate-900/60 transition-colors">
+                        <td className="p-2.5 font-sans font-medium text-white">{d.nodeName}</td>
+                        <td className="p-2.5 text-slate-300 font-sans">{d.state}</td>
+                        <td className="p-2.5 text-blue-400">{d.satellite.mission}</td>
+                        <td className="p-2.5 text-center text-amber-400 font-bold">{d.satellite.lineOfSightVelocityMmYr} mm/yr</td>
+                        <td className="p-2.5 text-center text-red-400 font-bold">{d.satellite.cumulativeDisplacementMm} mm</td>
+                        <td className="p-2.5 text-center text-emerald-400 font-bold">{d.satellite.interferometricCoherence}</td>
+                        <td className="p-2.5 text-center text-slate-400 text-[10px]">{d.satellite.orbitTrack} ({d.satellite.polarization})</td>
+                      </tr>
+                    ))
+                  ) : selectedDataTab === 'ground' ? (
+                    multiSignalData.map((d) => (
+                      <tr key={d.nodeId} className="hover:bg-slate-900/60 transition-colors">
+                        <td className="p-2.5 font-sans font-medium text-white">{d.nodeName}</td>
+                        <td className="p-2.5 text-cyan-400 font-bold">{d.ground.porePressureKpa} kPa</td>
+                        <td className="p-2.5 text-center text-blue-400 font-bold">{d.ground.porePressurePct}%</td>
+                        <td className="p-2.5 text-center text-amber-400 font-bold">{d.ground.inclinometerTiltDeg}°</td>
+                        <td className="p-2.5 text-center text-red-400 font-bold">{d.ground.subsurfaceCreepMm} mm</td>
+                        <td className="p-2.5 text-center text-purple-400">{d.ground.vibrationHz} Hz</td>
+                        <td className="p-2.5 text-center text-emerald-400">{d.ground.loraSignalRssi} dBm</td>
+                      </tr>
+                    ))
+                  ) : selectedDataTab === 'weather' ? (
+                    multiSignalData.map((d) => (
+                      <tr key={d.nodeId} className="hover:bg-slate-900/60 transition-colors">
+                        <td className="p-2.5 font-sans font-medium text-white">{d.nodeName}</td>
+                        <td className="p-2.5 text-slate-300 font-sans">{d.state}</td>
+                        <td className="p-2.5 text-center text-amber-400">{d.weather.temperatureC}°C</td>
+                        <td className="p-2.5 text-center text-blue-400">{d.weather.relativeHumidityPct}%</td>
+                        <td className="p-2.5 text-center text-cyan-400 font-bold">{d.weather.rainfallCurrentMmH} mm/h</td>
+                        <td className="p-2.5 text-center text-purple-400 font-bold">{d.weather.rainfall24hMm} mm</td>
+                        <td className="p-2.5 text-center text-emerald-400 font-bold">{d.weather.soilMoisturePct}% Saturation</td>
+                      </tr>
+                    ))
+                  ) : (
+                    telemetryLogs.slice(0, 50).map((record) => (
+                      <tr key={record.id} className="hover:bg-slate-900/60 transition-colors">
+                        <td className="p-2.5 text-slate-400 text-[11px]">
+                          {new Date(record.timestamp).toLocaleTimeString()}
+                        </td>
+                        <td className="p-2.5 font-sans font-medium text-white">{record.nodeName}</td>
+                        <td className="p-2.5 text-slate-300 font-sans">{record.state}</td>
+                        <td className="p-2.5 text-center font-bold text-purple-400">{record.riskScore}/100</td>
+                        <td className="p-2.5 text-center text-blue-400 font-bold">{record.porePressure}%</td>
+                        <td className="p-2.5 text-center text-amber-400 font-bold">{record.creepRate}mm</td>
+                        <td className="p-2.5 text-center text-cyan-400 font-bold">{record.rainfall24h}mm</td>
+                        <td className="p-2.5 text-center">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                              record.status === 'DANGER'
+                                ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                : record.status === 'WATCH'
+                                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            }`}
+                          >
+                            {record.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
