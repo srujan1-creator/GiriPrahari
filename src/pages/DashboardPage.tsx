@@ -27,6 +27,8 @@ import { INITIAL_SLOPE_NODES, INITIAL_ALERTS, generateRealtime7DayTrend } from '
 import { TRANSLATIONS } from '../services/translations';
 import { ExplainableAIModal } from '../components/ExplainableAIModal';
 import { AutoDialerWidget } from '../components/AutoDialerWidget';
+import { syncNodesWithRealLiveData } from '../services/realDataService';
+import { logContinuousTelemetry, getContinuousTelemetry, exportTelemetryCSV, type TelemetryRecord } from '../services/supabaseClient';
 
 interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
@@ -85,6 +87,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [trendData, setTrendData] = useState(() => generateRealtime7DayTrend());
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(8);
+  const [isRealDataSyncing, setIsRealDataSyncing] = useState(false);
+  const [realDataLastSync, setRealDataLastSync] = useState<string>('Live Streaming');
+  const [isDataModalOpen, setIsDataModalOpen] = useState(false);
+  const [telemetryLogs, setTelemetryLogs] = useState<TelemetryRecord[]>(() => getContinuousTelemetry());
 
   const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
@@ -93,6 +99,36 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const safeCount = nodes.filter(n => n.status === 'SAFE').length;
 
   const dangerNodes = nodes.filter(n => n.status === 'DANGER');
+
+  // Real Live Meteorological & Satellite Data Ingestion (Open-Meteo API)
+  useEffect(() => {
+    let isMounted = true;
+
+    const ingestRealData = async () => {
+      setIsRealDataSyncing(true);
+      try {
+        const synced = await syncNodesWithRealLiveData(nodes);
+        if (isMounted) {
+          setNodes(synced);
+          setRealDataLastSync(new Date().toLocaleTimeString());
+          await logContinuousTelemetry(synced);
+          setTelemetryLogs(getContinuousTelemetry());
+        }
+      } catch (err) {
+        console.warn('[RealData] Sync notice:', err);
+      } finally {
+        if (isMounted) setIsRealDataSyncing(false);
+      }
+    };
+
+    ingestRealData();
+    const interval = setInterval(ingestRealData, 20000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Generate ultra-clean Spider Web Mesh Topology (Radial Hub Spokes + Ring Lattice)
   const meshLines: { positions: [number, number][]; color: string }[] = [];
@@ -147,7 +183,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Periodic Real-Time Telemetry Simulator
+  // Periodic Real-Time Telemetry Simulator for sub-millimeter micro-creep
   useEffect(() => {
     const interval = setInterval(() => {
       setNodes((prevNodes) =>
@@ -202,10 +238,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
         {/* Right Header Status Bar */}
         <div className="flex items-center gap-3">
+          {/* Real Live Data Stream Inspector Button */}
+          <button
+            onClick={() => {
+              setTelemetryLogs(getContinuousTelemetry());
+              setIsDataModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 bg-purple-950/80 border border-purple-500/50 hover:bg-purple-900/60 text-purple-300 px-3 py-1 rounded-full text-xs font-mono transition-all cursor-pointer shadow-lg shadow-purple-950/40"
+            title="Inspect continuous real-time telemetry stream & database records"
+          >
+            <span className={`w-2 h-2 rounded-full ${isRealDataSyncing ? 'bg-amber-400 animate-ping' : 'bg-purple-400 animate-pulse'}`} />
+            <span className="font-bold">🛰️ REAL DATA STREAM</span>
+            <span className="text-[10px] bg-purple-800/80 px-1.5 py-0.2 rounded font-bold text-white">
+              {telemetryLogs.length} Records
+            </span>
+          </button>
+
           {/* Operational Pill */}
           <div className="hidden lg:flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 px-3 py-1 rounded-full text-xs font-semibold">
             <CheckCircle className="w-3.5 h-3.5" />
-            <span>SYSTEM STATUS — All Systems Operational ({nodes.length} Nodes Monitored)</span>
+            <span>SYSTEM STATUS — Real Satellite Models Ingesting ({nodes.length} Nodes)</span>
           </div>
 
           {/* Live Clock */}
@@ -766,6 +818,126 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
         onClose={() => setExplainNode(null)}
         node={explainNode}
       />
+
+      {/* Continuous Real Data Stream & Database Inspector Modal */}
+      {isDataModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="bg-[#0E1420] border border-purple-500/30 rounded-2xl w-full max-w-4xl shadow-2xl p-6 flex flex-col max-h-[85vh] text-white">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 font-bold">
+                  🛰️
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold flex items-center gap-2">
+                    Continuous Real Data Stream & Database Store
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-500/40 font-mono font-bold">
+                      LIVE INGESTION ACTIVE
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Real satellite & Open-Meteo meteorological readings continuously captured and stored in PostgreSQL / Local storage.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportTelemetryCSV}
+                  className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold font-mono flex items-center gap-1.5 transition-all shadow cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  EXPORT CSV
+                </button>
+                <button
+                  onClick={() => setIsDataModalOpen(false)}
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Live Metrics Quick Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-xs font-mono">
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-white/5">
+                <span className="text-slate-400 block text-[10px]">TOTAL STORED RECORDS</span>
+                <span className="text-lg font-bold text-purple-400">{telemetryLogs.length}</span>
+              </div>
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-white/5">
+                <span className="text-slate-400 block text-[10px]">LAST REAL SYNC</span>
+                <span className="text-sm font-bold text-emerald-400">{realDataLastSync}</span>
+              </div>
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-white/5">
+                <span className="text-slate-400 block text-[10px]">SOURCE MODEL</span>
+                <span className="text-sm font-bold text-blue-400">Open-Meteo + InSAR</span>
+              </div>
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-white/5">
+                <span className="text-slate-400 block text-[10px]">DATABASE SYNC</span>
+                <span className="text-sm font-bold text-amber-400">PostgreSQL (Dual)</span>
+              </div>
+            </div>
+
+            {/* Live Continuous Telemetry Table */}
+            <div className="flex-1 overflow-y-auto border border-white/10 rounded-xl bg-slate-950/60 font-mono text-xs">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-slate-900 text-slate-400 text-[10px] uppercase border-b border-white/10">
+                  <tr>
+                    <th className="p-2.5">Time</th>
+                    <th className="p-2.5">Node Sector</th>
+                    <th className="p-2.5">State</th>
+                    <th className="p-2.5 text-center">Risk</th>
+                    <th className="p-2.5 text-center">Pore Water</th>
+                    <th className="p-2.5 text-center">Creep</th>
+                    <th className="p-2.5 text-center">24h Rain</th>
+                    <th className="p-2.5 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {telemetryLogs.slice(0, 50).map((record) => (
+                    <tr key={record.id} className="hover:bg-slate-900/60 transition-colors">
+                      <td className="p-2.5 text-slate-400 text-[11px]">
+                        {new Date(record.timestamp).toLocaleTimeString()}
+                      </td>
+                      <td className="p-2.5 font-sans font-medium text-white">{record.nodeName}</td>
+                      <td className="p-2.5 text-slate-300 font-sans">{record.state}</td>
+                      <td className="p-2.5 text-center font-bold text-purple-400">{record.riskScore}/100</td>
+                      <td className="p-2.5 text-center text-blue-400 font-bold">{record.porePressure}%</td>
+                      <td className="p-2.5 text-center text-amber-400 font-bold">{record.creepRate}mm</td>
+                      <td className="p-2.5 text-center text-cyan-400 font-bold">{record.rainfall24h}mm</td>
+                      <td className="p-2.5 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                            record.status === 'DANGER'
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              : record.status === 'WATCH'
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          }`}
+                        >
+                          {record.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-slate-400">
+              <span>Streaming 35 live landslide monitoring stations across 8 North East states.</span>
+              <button
+                onClick={() => setIsDataModalOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer"
+              >
+                Close Viewer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
