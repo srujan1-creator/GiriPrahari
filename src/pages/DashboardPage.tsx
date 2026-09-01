@@ -930,11 +930,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     <tr>
                       <th className="p-2.5">Node Sector</th>
                       <th className="p-2.5">State</th>
-                      <th className="p-2.5">Mission</th>
-                      <th className="p-2.5 text-center">LOS Velocity</th>
-                      <th className="p-2.5 text-center">Displacement</th>
-                      <th className="p-2.5 text-center">Coherence</th>
-                      <th className="p-2.5 text-center">Track / Pol</th>
+                      <th className="p-2.5 text-center">Satellite Thermal Skin</th>
+                      <th className="p-2.5 text-center">Cloud Cover</th>
+                      <th className="p-2.5 text-center">Radar Soil (0-1cm)</th>
+                      <th className="p-2.5 text-center">Radar Deep (3-9cm)</th>
+                      <th className="p-2.5 text-center">InSAR Velocity</th>
+                      <th className="p-2.5 text-center">Mission / Track</th>
                     </tr>
                   ) : selectedDataTab === 'ground' ? (
                     <tr>
@@ -975,11 +976,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                       <tr key={d.nodeId} className="hover:bg-slate-900/60 transition-colors">
                         <td className="p-2.5 font-sans font-medium text-white">{d.nodeName}</td>
                         <td className="p-2.5 text-slate-300 font-sans">{d.state}</td>
-                        <td className="p-2.5 text-blue-400">{d.satellite.mission}</td>
-                        <td className="p-2.5 text-center text-amber-400 font-bold">{d.satellite.lineOfSightVelocityMmYr} mm/yr</td>
-                        <td className="p-2.5 text-center text-red-400 font-bold">{d.satellite.cumulativeDisplacementMm} mm</td>
-                        <td className="p-2.5 text-center text-emerald-400 font-bold">{d.satellite.interferometricCoherence}</td>
-                        <td className="p-2.5 text-center text-slate-400 text-[10px]">{d.satellite.orbitTrack} ({d.satellite.polarization})</td>
+                        <td className="p-2.5 text-center text-amber-400 font-bold">{d.satellite.surfaceSkinTempC}°C</td>
+                        <td className="p-2.5 text-center text-blue-400 font-bold">{d.satellite.cloudCoverPct}% (Low: {d.satellite.cloudCoverLowPct}%)</td>
+                        <td className="p-2.5 text-center text-cyan-400 font-bold">{d.satellite.radarSoilMoistureSurface} m³/m³</td>
+                        <td className="p-2.5 text-center text-emerald-400 font-bold">{d.satellite.radarSoilMoistureDeep} m³/m³</td>
+                        <td className="p-2.5 text-center text-red-400 font-bold">{d.satellite.lineOfSightVelocityMmYr} mm/yr</td>
+                        <td className="p-2.5 text-center text-slate-400 text-[10px]">{d.satellite.mission} ({d.satellite.orbitTrack})</td>
                       </tr>
                     ))
                   ) : selectedDataTab === 'ground' ? (
