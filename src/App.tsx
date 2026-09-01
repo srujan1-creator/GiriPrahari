@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { EmergencySOSModal } from './components/EmergencySOSModal';
+import { GeminiDisasterChat } from './components/GeminiDisasterChat';
 import { LandingPage } from './pages/LandingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LiveMapPage } from './pages/LiveMapPage';
@@ -83,6 +84,9 @@ export function App() {
         onClose={() => setIsSOSOpen(false)}
         currentLang={currentLang}
       />
+
+      {/* Floating Google Gemini Disaster AI Assistant */}
+      <GeminiDisasterChat currentLang={currentLang} />
     </div>
   );
 }
