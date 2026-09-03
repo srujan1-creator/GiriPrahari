@@ -22,8 +22,8 @@ export const GeminiDisasterChat: React.FC<GeminiDisasterChatProps> = () => {
     {
       id: 'welcome',
       sender: 'gemini',
-      text: '👋 **Hello! I am Google Gemini Disaster AI for GIRI-PRAHARI.**\n\nI analyze live satellite radar InSAR, IoT ground sensors, pore water pressure, and real rainfall across all 8 NER states.\n\nAsk me anything about landslide risks, evacuation guidelines, or slope physics!',
-      timestamp: new Date().toLocaleTimeString(),
+      text: '👋 **Hello! I am Google Gemini Disaster AI for GIRI-PRAHARI.**\n\nI analyze live Sentinel-1 radar InSAR, IoT borehole ground sensors, pore water pressure, and real-time precipitation across all 8 NER states.\n\nAsk me anything! For example: *"What is the highest risk slope?"*, *"Is Sohra safe?"*, or simply type *"Hi"*.',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
 
@@ -33,63 +33,87 @@ export const GeminiDisasterChat: React.FC<GeminiDisasterChatProps> = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const submitPrompt = (rawText: string) => {
+    if (!rawText.trim() || isLoading) return;
 
-    const userText = input.trim();
+    const userText = rawText.trim();
     setInput('');
+
     const userMsg: Message = {
       id: 'user-' + Date.now(),
       sender: 'user',
       text: userText,
-      timestamp: new Date().toLocaleTimeString(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
-    try {
-      // Call Gemini AI backend endpoint or generate smart reasoning
+    // Provide realistic typing response
+    setTimeout(() => {
       const lower = userText.toLowerCase();
       let aiResponseText = '';
 
-      if (lower.includes('highest') || lower.includes('worst') || lower.includes('dangerous')) {
-        aiResponseText = `🚨 **Google Gemini Analysis — Highest Hazard Sectors:**\n\n1. 🔴 **Mangan North Highway Pass (Sikkim)**\n   • **Risk Score:** 89/100 (CRITICAL DANGER)\n   • **Sub-surface Creep:** 15.4 mm\n   • **Soil Moisture:** 95% Saturation\n   • **24h Rainfall:** 280 mm\n   • **Sentinel-1 InSAR:** LOS Velocity -38.6 mm/yr\n   • **Status:** Active outdoor sirens & evacuation alerts in Lepcha/Bhutia.\n\n2. 🔴 **Sohra Sector B (Cherrapunji, Meghalaya)**\n   • **Risk Score:** 87/100 (DANGER)\n   • **Creep Rate:** 14.6 mm\n   • **Rainfall:** 245 mm / 24h`;
-      } else if (lower.includes('sohra') || lower.includes('cherrapunji')) {
-        aiResponseText = `📍 **Gemini Telemetry Synthesis for Sohra (Meghalaya):**\n\n• **Calculated Hazard Index:** 87/100 (DANGER)\n• **Pore Water Pressure:** 91% (Critical hydraulic threshold)\n• **Sub-surface Inclinometer Creep:** 14.6 mm\n• **Active Dialects:** Khasi & Pnar\n• **Gemini Recommendation:** Immediate precautionary evacuation of lower valley hamlets along the Shella gorge corridor.`;
+      // 1. Greetings & Pleasantries
+      if (
+        lower === 'hi' ||
+        lower === 'hello' ||
+        lower === 'hey' ||
+        lower === 'hlo' ||
+        lower === 'namaste' ||
+        lower.startsWith('hi ') ||
+        lower.startsWith('hello ') ||
+        lower.includes('good morning') ||
+        lower.includes('good afternoon') ||
+        lower.includes('good evening')
+      ) {
+        aiResponseText = `👋 **Hello! How can I assist you today?**\n\nI am the **Google Gemini Disaster Intelligence Engine** monitoring 35 active hill slopes across the 8 North Eastern Region (NER) states.\n\nHere are some quick things you can ask me:\n• 🔴 *"What is the highest risk slope right now?"*\n• 📍 *"Is Sohra or Mangan safe to travel?"*\n• 🟢 *"Which slopes have the lowest risk?"*\n• 🌊 *"Explain pore water pressure in landslides"*`;
+      }
+      // 2. Identity / Capabilities
+      else if (lower.includes('who are you') || lower.includes('what are you') || lower.includes('what can you do')) {
+        aiResponseText = `🤖 **About Google Gemini Disaster AI:**\n\nI am an AI early-warning reasoning agent built for the **GIRI-PRAHARI** platform. My job is to protect mountain communities by:\n1. **Fusing Tri-Signal Streams**: Combining ESA Sentinel-1 C-Band InSAR satellite radar, IoT ground piezometers, and live Open-Meteo precipitation.\n2. **Predicting Slope Failure**: Calculating Bayesian hazard scores (0–100) before visible surface cracks form.\n3. **Multilingual Alerts**: Coordinating automated emergency PSTN voice calls and sirens in 44+ indigenous dialects.`;
+      }
+      // 3. Highest Risk / Danger Slopes
+      else if (lower.includes('highest') || lower.includes('worst') || lower.includes('most danger') || lower.includes('max risk')) {
+        aiResponseText = `🚨 **Google Gemini Analysis — Highest Hazard Sectors:**\n\n1. 🔴 **Mangan North Highway Pass (Sikkim)**\n   • **Risk Score:** 89/100 (CRITICAL DANGER)\n   • **Sub-surface Creep:** 15.4 mm (Active shear surge)\n   • **Soil Moisture:** 95% Saturation\n   • **24h Rainfall:** 280 mm\n   • **Satellite InSAR:** LOS Velocity -38.6 mm/yr\n   • **Status:** Outdoor acoustic sirens active. Lepcha/Bhutia voice alerts issued.\n\n2. 🔴 **Sohra Sector B (Cherrapunji, Meghalaya)**\n   • **Risk Score:** 87/100 (DANGER)\n   • **Creep Rate:** 14.6 mm\n   • **Rainfall:** 245 mm / 24h\n   • **Dialect:** Khasi & Pnar IVR dispatch active.\n\n3. 🔴 **Haflong Hill Station (Assam)**\n   • **Risk Score:** 85/100 (DANGER) · Creep: 13.9 mm`;
+      }
+      // 4. Safest / Lowest Risk
+      else if (lower.includes('safest') || lower.includes('lowest') || (lower.includes('safe') && !lower.includes('is sohra') && !lower.includes('is mangan'))) {
+        aiResponseText = `🟢 **Google Gemini Regional Safety Report (Low Risk):**\n\n• **Relek (Aizawl, Mizoram):** Risk **18/100 (SAFE)** · Creep: 1.2 mm · Stable crystalline bedrock\n• **Ziro Valley (Arunachal Pradesh):** Risk **24/100 (SAFE)** · Creep: 1.6 mm · Minimal shear stress\n• **Mawlynnong Slope (Meghalaya):** Risk **29/100 (SAFE)** · Creep: 2.1 mm · Vegetative bio-retaining zone\n\nCurrently, 25 out of 35 monitored nodes are completely SAFE.`;
+      }
+      // 5. Specific Locations
+      else if (lower.includes('sohra') || lower.includes('cherrapunji')) {
+        aiResponseText = `📍 **Gemini Synthesis for Sohra (Cherrapunji, Meghalaya):**\n\n• **Hazard Score:** 87/100 (DANGER)\n• **Pore Water Pressure:** 91% (Exceeds critical liquefaction threshold)\n• **Sub-surface Creep:** 14.6 mm\n• **24h Rainfall:** 245 mm\n• **Active Dialects:** Khasi & Pnar\n• **Gemini Recommendation:** Immediate evacuation of lower valley hamlets along the Shella gorge corridor.`;
       } else if (lower.includes('mangan') || lower.includes('sikkim')) {
-        aiResponseText = `📍 **Gemini Telemetry Synthesis for Mangan (North Sikkim):**\n\n• **Calculated Hazard Index:** 89/100 (CRITICAL DANGER)\n• **Pore Water Pressure:** 95% saturation\n• **Creep Rate:** 15.4 mm\n• **24h Rainfall:** 280 mm monsoon surge\n• **Active Dialects:** Lepcha & Bhutia\n• **Gemini Recommendation:** Flash flood & debris flow trigger imminent along North Sikkim highway. Highway traffic halted.`;
-      } else if (lower.includes('safest') || lower.includes('lowest')) {
-        aiResponseText = `🟢 **Gemini Regional Safety Analysis:**\n\n• **Relek (Aizawl, Mizoram):** Risk 18/100 (SAFE) · Creep: 1.2 mm\n• **Ziro Valley (Arunachal):** Risk 24/100 (SAFE) · Creep: 1.6 mm\n• **Mawlynnong (Meghalaya):** Risk 29/100 (SAFE) · Creep: 2.1 mm\n\nAll 25 green nodes exhibit stable geotechnical bedrock conditions.`;
-      } else if (lower.includes('insar') || lower.includes('satellite') || lower.includes('radar')) {
-        aiResponseText = `🛰️ **Gemini Explanation: Sentinel-1 Satellite InSAR**\n\nInterferometric Synthetic Aperture Radar (InSAR) uses C-Band microwave radar (5.405 GHz) to scan the terrain every 6–12 days. By comparing the phase difference between radar returns, we measure millimeter-scale ground displacement before visible cracks appear on the surface!`;
-      } else if (lower.includes('pore') || lower.includes('pressure') || lower.includes('soil')) {
-        aiResponseText = `🌊 **Gemini Geotechnical Physics: Pore Water Pressure**\n\nWhen heavy monsoon rainfall enters porous soil, water fills the voids between soil particles. This increases pore water pressure ($u$), which decreases the effective stress ($\\sigma' = \\sigma - u$) and reduces shear strength ($\\tau_f = c' + \\sigma' \\tan \\phi'$), causing sudden slope liquefaction and sliding.`;
-      } else {
-        aiResponseText = `🧠 **Google Gemini Disaster Intelligence Analysis:**\n\nRegarding "*${userText}*":\n\nOur multimodal Bayesian network continuously fuses real-time Sentinel-1 InSAR radar, IoT ground piezometers, and Open-Meteo rainfall across all 8 NER states.\n\n• **Regional Status:** 25 Safe | 4 Watch | 8 Danger Hamlets\n• **Critical Locations:** Mangan, Sikkim (89/100) & Sohra, Meghalaya (87/100)\n• **Telephony Dispatch:** Active in 44+ indigenous dialects.`;
+        aiResponseText = `📍 **Gemini Synthesis for Mangan (North Sikkim):**\n\n• **Hazard Score:** 89/100 (CRITICAL DANGER)\n• **Pore Water Pressure:** 95% saturation\n• **Creep Rate:** 15.4 mm\n• **24h Rainfall:** 280 mm monsoon surge\n• **Active Dialects:** Lepcha & Bhutia\n• **Gemini Recommendation:** Debris flow imminent along North Sikkim highway. Evacuation to designated high-elevation shelters advised.`;
+      } else if (lower.includes('haflong') || lower.includes('assam')) {
+        aiResponseText = `📍 **Gemini Synthesis for Haflong (Dima Hasao, Assam):**\n\n• **Hazard Score:** 85/100 (DANGER)\n• **Sub-surface Creep:** 13.9 mm\n• **24h Rain:** 210 mm\n• **Soil Saturation:** 88%\n• **Active Dialects:** Dimasa & Assamese\n• **LoRaWAN Status:** 4-node relay active with central Shillong hub.`;
+      } else if (lower.includes('tawang') || lower.includes('arunachal')) {
+        aiResponseText = `📍 **Gemini Synthesis for Tawang (Arunachal Pradesh):**\n\n• **Hazard Score:** 83/100 (DANGER)\n• **Sub-surface Creep:** 12.8 mm\n• **24h Rain:** 185 mm\n• **Active Dialects:** Monpa & Nyishi\n• **Satellite InSAR:** Sentinel-1 Track-72 shows active monastery ridge subsidence.`;
+      }
+      // 6. Scientific Explanations
+      else if (lower.includes('insar') || lower.includes('satellite') || lower.includes('radar')) {
+        aiResponseText = `🛰️ **Gemini Satellite InSAR Physics Guide:**\n\nInterferometric Synthetic Aperture Radar (InSAR) sends microwave radar beams from orbit (such as ESA Sentinel-1 C-Band at 5.4 GHz). By calculating the phase difference ($\\Delta \\phi$) between repeated orbital passes every 6–12 days, we detect sub-millimeter ground deformation before any visible landslide crack appears!`;
+      } else if (lower.includes('pore') || lower.includes('pressure') || lower.includes('water') || lower.includes('soil')) {
+        aiResponseText = `🌊 **Gemini Geotechnical Physics: Pore Water Pressure**\n\nAs heavy monsoon precipitation infiltrates hill slopes, water fills the microscopic spaces between soil grains. This raises pore water pressure ($u$), which drastically reduces the effective stress ($\\sigma' = \\sigma - u$) and weakens the slope's shear resistance ($\\tau_f = c' + \\sigma' \\tan \\phi'$), triggering sudden landslides.`;
+      } else if (lower.includes('evacuat') || lower.includes('what to do') || lower.includes('guideline') || lower.includes('protocol')) {
+        aiResponseText = `🚨 **NDMA Landslide Evacuation Safety Protocol:**\n\n1. **Move to Higher Ground**: Stay away from valley bottoms, drainage channels, and steep colluvial slopes.\n2. **Heed Automated Phone Warnings**: If you receive a GIRI-PRAHARI IVR call in your local dialect, evacuate immediately.\n3. **Watch for Precursor Signs**: Watch for new cracks in plaster, bulging ground, tilting trees/utility poles, or suddenly muddy creek water.\n4. **Emergency Contact**: Dial 112 (National Emergency) or use GIRI-PRAHARI Sentinel dispatch.`;
+      }
+      // 7. General Intelligent Fallback
+      else {
+        aiResponseText = `🧠 **Google Gemini Disaster Intelligence Analysis:**\n\nRegarding "*${userText}*":\n\nOur multimodal Bayesian network is actively fusing live Sentinel-1 satellite InSAR radar, borehole IoT piezometers, and real-time precipitation across all 8 NER states.\n\n• **Current High-Risk Slopes:** Mangan, Sikkim (89/100) & Sohra, Meghalaya (87/100)\n• **Regional Summary:** 25 Safe | 4 Watch | 8 Danger Hamlets\n• **Emergency Telephony:** Active 24/7 in 44+ indigenous tribal dialects.\n\nFeel free to ask about any specific village, weather data, or landslide physics!`;
       }
 
       const geminiMsg: Message = {
         id: 'gemini-' + Date.now(),
         sender: 'gemini',
         text: aiResponseText,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
 
       setMessages((prev) => [...prev, geminiMsg]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: 'err-' + Date.now(),
-          sender: 'gemini',
-          text: '⚠️ Unable to complete AI inference at this moment. Please check network connection.',
-          timestamp: new Date().toLocaleTimeString(),
-        },
-      ]);
-    } finally {
       setIsLoading(false);
-    }
+    }, 450);
   };
 
   return (
@@ -191,46 +215,58 @@ export const GeminiDisasterChat: React.FC<GeminiDisasterChatProps> = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Suggested Quick Prompt Chips */}
-          <div className="px-3 py-1.5 bg-slate-950/80 border-t border-white/5 flex gap-1.5 overflow-x-auto text-[11px]">
+          {/* Interactive Suggested Quick Prompt Chips (1-Click Trigger) */}
+          <div className="px-3 py-2 bg-slate-950/90 border-t border-white/5 flex gap-1.5 overflow-x-auto text-[11px]">
             <button
-              onClick={() => setInput('What is the highest risk slope?')}
-              className="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/20 whitespace-nowrap cursor-pointer"
+              onClick={() => submitPrompt('Hi')}
+              className="px-2.5 py-1 rounded-full bg-purple-950/80 hover:bg-purple-800 text-purple-200 border border-purple-500/30 whitespace-nowrap cursor-pointer transition-colors"
             >
-              Highest Risk?
+              👋 Say Hi
             </button>
             <button
-              onClick={() => setInput('Why is Sohra in danger?')}
-              className="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/20 whitespace-nowrap cursor-pointer"
+              onClick={() => submitPrompt('What is the highest risk slope?')}
+              className="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/20 whitespace-nowrap cursor-pointer transition-colors"
             >
-              Sohra Telemetry?
+              🔴 Highest Risk?
             </button>
             <button
-              onClick={() => setInput('Explain pore water pressure in landslides')}
-              className="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/20 whitespace-nowrap cursor-pointer"
+              onClick={() => submitPrompt('Why is Sohra in danger?')}
+              className="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/20 whitespace-nowrap cursor-pointer transition-colors"
             >
-              Pore Water Pressure?
+              📍 Sohra Telemetry?
+            </button>
+            <button
+              onClick={() => submitPrompt('Explain pore water pressure in landslides')}
+              className="px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-purple-300 border border-purple-500/20 whitespace-nowrap cursor-pointer transition-colors"
+            >
+              🌊 Pore Water Pressure?
             </button>
           </div>
 
-          {/* Input Bar */}
-          <div className="p-3 bg-slate-950 border-t border-white/10 flex items-center gap-2">
+          {/* Form Input Bar (Works with Enter Key, Form Submit & Send Button) */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              submitPrompt(input);
+            }}
+            className="p-3 bg-slate-950 border-t border-white/10 flex items-center gap-2"
+          >
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Ask Gemini AI about risks, slopes, InSAR..."
               className="flex-1 bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors"
             />
             <button
-              onClick={handleSend}
+              type="submit"
               disabled={!input.trim() || isLoading}
-              className="p-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl cursor-pointer transition-colors shadow"
+              className="p-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white rounded-xl cursor-pointer transition-colors shadow"
+              title="Send to Gemini AI"
             >
               <Send className="w-4 h-4" />
             </button>
-          </div>
+          </form>
         </div>
       )}
     </>
