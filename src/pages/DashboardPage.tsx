@@ -96,7 +96,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [nodes, setNodes] = useState<SlopeNode[]>(INITIAL_SLOPE_NODES);
   const alerts = INITIAL_ALERTS;
   const [selectedNode, setSelectedNode] = useState<SlopeNode | null>(null);
-  const [mapMode, setMapMode] = useState<'terrain' | 'satellite' | 'carto'>('satellite');
+  const [mapMode, setMapMode] = useState<'terrain' | 'satellite'>('satellite');
   const [activeChannelFilter, setActiveChannelFilter] = useState<string | null>(null);
   const [explainNode, setExplainNode] = useState<SlopeNode | null>(null);
   const [liveClock, setLiveClock] = useState<string>('');
@@ -538,14 +538,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     >
                       🗺️ OpenStreetMap
                     </button>
-                    <button
-                      onClick={() => setMapMode('carto')}
-                      className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
-                        mapMode === 'carto' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      🌌 Carto Dark
-                    </button>
                   </div>
 
                   <button
@@ -559,30 +551,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
               </div>
 
               {/* Leaflet Geographic Map Container */}
-              <div className="flex-1 relative rounded-xl border border-white/5 overflow-hidden min-h-[380px]">
+              <div className="relative w-full h-[450px] rounded-xl border border-white/5 overflow-hidden bg-slate-950">
                 <MapContainer
                   center={[25.8, 93.2]}
                   zoom={7}
                   scrollWheelZoom={true}
                   className="w-full h-full z-0"
-                  style={{ height: '100%', width: '100%', background: '#090D12' }}
+                  style={{ height: '450px', width: '100%', background: '#090D12' }}
                 >
                   <MapAutoResize />
                   <TileLayer
                     key={mapMode}
-                    attribution={
-                      mapMode === 'satellite'
-                        ? 'Tiles &copy; Esri'
-                        : mapMode === 'carto'
-                        ? '&copy; CartoDB Dark Matter'
-                        : '&copy; OpenStreetMap'
-                    }
+                    attribution={mapMode === 'satellite' ? 'Tiles &copy; Esri' : '&copy; OpenStreetMap'}
                     url={
                       mapMode === 'satellite'
-                        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                        : mapMode === 'carto'
-                        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                        ? 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                     }
                     maxZoom={18}
                   />

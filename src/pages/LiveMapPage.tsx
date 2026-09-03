@@ -68,7 +68,7 @@ export const LiveMapPage: React.FC<LiveMapPageProps> = ({ onOpenSOS, currentLang
   const [selectedNode, setSelectedNode] = useState<SlopeNode | null>(INITIAL_SLOPE_NODES[0]); // Default to Sohra
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'DANGER' | 'WATCH' | 'SAFE'>('ALL');
-  const [mapTileMode, setMapTileMode] = useState<'topo' | 'satellite' | 'carto'>('satellite');
+  const [mapTileMode, setMapTileMode] = useState<'topo' | 'satellite'>('satellite');
 
   const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
@@ -185,14 +185,6 @@ export const LiveMapPage: React.FC<LiveMapPageProps> = ({ onOpenSOS, currentLang
             >
               🗺️ OpenStreetMap
             </button>
-            <button
-              onClick={() => setMapTileMode('carto')}
-              className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
-                mapTileMode === 'carto' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              🌌 Carto Dark
-            </button>
           </div>
 
           {/* Search Box */}
@@ -259,19 +251,11 @@ export const LiveMapPage: React.FC<LiveMapPageProps> = ({ onOpenSOS, currentLang
             <MapAutoResize />
             <TileLayer
               key={mapTileMode}
-              attribution={
-                mapTileMode === 'satellite'
-                  ? 'Tiles &copy; Esri'
-                  : mapTileMode === 'carto'
-                  ? '&copy; CartoDB Dark Matter'
-                  : '&copy; OpenStreetMap'
-              }
+              attribution={mapTileMode === 'satellite' ? 'Tiles &copy; Esri' : '&copy; OpenStreetMap'}
               url={
                 mapTileMode === 'satellite'
-                  ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                  : mapTileMode === 'carto'
-                  ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                  : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                  ? 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                  : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
               }
               maxZoom={18}
             />
