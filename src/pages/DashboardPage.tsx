@@ -91,7 +91,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isRealDataSyncing, setIsRealDataSyncing] = useState(false);
   const [realDataLastSync, setRealDataLastSync] = useState<string>('Live Streaming');
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
-  const [selectedDataTab, setSelectedDataTab] = useState<'all' | 'satellite' | 'ground' | 'weather' | 'ai'>('all');
+  const [selectedDataTab, setSelectedDataTab] = useState<'all' | 'isro' | 'satellite' | 'ground' | 'weather' | 'ai'>('all');
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryRecord[]>(() => getContinuousTelemetry());
   const [multiSignalData, setMultiSignalData] = useState<ComprehensiveNodeTelemetry[]>([]);
 
@@ -894,7 +894,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   selectedDataTab === 'all' ? 'bg-purple-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🌐 Unified All-Stream Telemetry
+                🌐 Unified All-Stream
+              </button>
+              <button
+                onClick={() => setSelectedDataTab('isro')}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  selectedDataTab === 'isro' ? 'bg-orange-600 text-white font-bold shadow ring-2 ring-orange-400/50' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🇮🇳 ISRO EOS-04 & Bhuvan
               </button>
               <button
                 onClick={() => setSelectedDataTab('satellite')}
@@ -902,7 +910,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   selectedDataTab === 'satellite' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🛰️ Satellite InSAR Radar Stream
+                🛰️ Sentinel InSAR
               </button>
               <button
                 onClick={() => setSelectedDataTab('ground')}
@@ -910,7 +918,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   selectedDataTab === 'ground' ? 'bg-emerald-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🌱 Geotechnical Ground IoT Stream
+                🌱 Ground IoT
               </button>
               <button
                 onClick={() => setSelectedDataTab('weather')}
@@ -918,7 +926,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   selectedDataTab === 'weather' ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🌧️ Live Open-Meteo Weather Stream
+                🌧️ Live Weather
               </button>
             </div>
 
@@ -926,7 +934,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
             <div className="flex-1 overflow-y-auto border border-white/10 rounded-xl bg-slate-950/60 font-mono text-xs">
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-slate-900 text-slate-400 text-[10px] uppercase border-b border-white/10">
-                  {selectedDataTab === 'satellite' ? (
+                  {selectedDataTab === 'isro' ? (
+                    <tr>
+                      <th className="p-2.5">Node Sector</th>
+                      <th className="p-2.5">State</th>
+                      <th className="p-2.5 text-center">ISRO Satellite Mission</th>
+                      <th className="p-2.5 text-center">Bhuvan LSZ Category</th>
+                      <th className="p-2.5 text-center">CartoDEM Elevation</th>
+                      <th className="p-2.5 text-center">INSAT-3DS LST</th>
+                      <th className="p-2.5 text-center">MOSDAC Rainfall</th>
+                      <th className="p-2.5 text-center">RISAT-1A Backscatter</th>
+                      <th className="p-2.5 text-center">NISAR InSAR</th>
+                    </tr>
+                  ) : selectedDataTab === 'satellite' ? (
                     <tr>
                       <th className="p-2.5">Node Sector</th>
                       <th className="p-2.5">State</th>
@@ -971,7 +991,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   )}
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {selectedDataTab === 'satellite' ? (
+                  {selectedDataTab === 'isro' ? (
+                    multiSignalData.map((d) => (
+                      <tr key={d.nodeId} className="hover:bg-slate-900/60 transition-colors">
+                        <td className="p-2.5 font-sans font-medium text-white">{d.nodeName}</td>
+                        <td className="p-2.5 text-slate-300 font-sans">{d.state}</td>
+                        <td className="p-2.5 text-orange-400 font-medium text-[11px]">{d.isro.satelliteName}</td>
+                        <td className="p-2.5 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            d.isro.bhuvanLszCategory === 'CRITICAL' ? 'bg-red-500/20 text-red-400 border border-red-500/40' :
+                            d.isro.bhuvanLszCategory === 'HIGH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                            'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                          }`}>
+                            {d.isro.bhuvanLszCategory}
+                          </span>
+                        </td>
+                        <td className="p-2.5 text-center text-cyan-400 font-bold">{d.isro.cartoDemElevationM} m</td>
+                        <td className="p-2.5 text-center text-amber-400 font-bold">{d.isro.insatLandSurfaceTempC}°C</td>
+                        <td className="p-2.5 text-center text-blue-400 font-bold">{d.isro.insatRainfallEstimateHemMm} mm</td>
+                        <td className="p-2.5 text-center text-purple-400 font-bold">{d.isro.risatBackscatterSigma0Db} dB</td>
+                        <td className="p-2.5 text-center text-red-400 font-bold">{d.isro.nisarInSarDefVelocityMmYr} mm/yr</td>
+                      </tr>
+                    ))
+                  ) : selectedDataTab === 'satellite' ? (
                     multiSignalData.map((d) => (
                       <tr key={d.nodeId} className="hover:bg-slate-900/60 transition-colors">
                         <td className="p-2.5 font-sans font-medium text-white">{d.nodeName}</td>
