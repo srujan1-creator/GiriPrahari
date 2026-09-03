@@ -37,30 +37,37 @@ interface DashboardPageProps {
   onOpenSOS: () => void;
 }
 
-// Create custom Leaflet marker icons
+// Create custom Leaflet marker icons with Level-4 Escalation for score >= 90
 const createCustomMarkerIcon = (status: 'SAFE' | 'WATCH' | 'DANGER', score: number, isSelected: boolean) => {
+  const isCritical90 = score >= 90;
+
   const colorClass =
-    status === 'DANGER'
+    isCritical90
+      ? 'bg-gradient-to-r from-red-600 via-rose-700 to-red-600 border-2 border-yellow-300 text-white shadow-[0_0_25px_rgba(239,68,68,1)] animate-bounce font-black'
+      : status === 'DANGER'
       ? 'bg-red-600 border-red-400 text-white shadow-red-900/80'
       : status === 'WATCH'
       ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-amber-900/80'
       : 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-900/80';
 
   const ringClass =
-    status === 'DANGER'
-      ? 'bg-red-500/40 animate-ping'
+    isCritical90
+      ? 'w-14 h-14 bg-red-600/60 animate-ping ring-4 ring-rose-400 -top-3.5 -left-3.5'
+      : status === 'DANGER'
+      ? 'w-9 h-9 bg-red-500/40 animate-ping -top-1 -left-1'
       : status === 'WATCH'
-      ? 'bg-amber-500/30'
-      : 'bg-emerald-500/20';
+      ? 'w-9 h-9 bg-amber-500/30 -top-1 -left-1'
+      : 'w-9 h-9 bg-emerald-500/20 -top-1 -left-1';
 
-  const scaleClass = isSelected ? 'scale-125 z-50 ring-4 ring-white' : 'hover:scale-110';
+  const scaleClass = isSelected ? 'scale-125 z-50 ring-4 ring-white' : isCritical90 ? 'scale-115 z-40' : 'hover:scale-110';
 
   const html = `
     <div class="relative flex items-center justify-center cursor-pointer group transition-transform ${scaleClass}">
-      <div class="w-9 h-9 rounded-full absolute -top-1 -left-1 ${ringClass}"></div>
+      <div class="rounded-full absolute ${ringClass}"></div>
+      ${isCritical90 ? '<div class="w-10 h-10 -top-1.5 -left-1.5 rounded-full absolute bg-rose-500/40 animate-pulse"></div>' : ''}
       <div class="px-2 py-0.5 rounded-xl border-2 font-mono font-black text-xs shadow-2xl flex items-center gap-1 whitespace-nowrap ${colorClass}">
-        <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-        <span>${score}</span>
+        <span class="w-2 h-2 rounded-full ${isCritical90 ? 'bg-yellow-300 animate-ping' : 'bg-white animate-pulse'}"></span>
+        <span>${isCritical90 ? '🚨 ' + score + ' EVACUATE' : score}</span>
       </div>
     </div>
   `;
@@ -68,8 +75,8 @@ const createCustomMarkerIcon = (status: 'SAFE' | 'WATCH' | 'DANGER', score: numb
   return L.divIcon({
     html,
     className: 'custom-leaflet-marker',
-    iconSize: [36, 26],
-    iconAnchor: [18, 13],
+    iconSize: isCritical90 ? [80, 28] : [36, 26],
+    iconAnchor: isCritical90 ? [40, 14] : [18, 13],
   });
 };
 
@@ -115,6 +122,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const dangerCount = nodes.filter(n => n.status === 'DANGER').length;
   const watchCount = nodes.filter(n => n.status === 'WATCH').length;
   const safeCount = nodes.filter(n => n.status === 'SAFE').length;
+  const critical90Nodes = nodes.filter(n => n.riskScore >= 90);
 
   const dangerNodes = nodes.filter(n => n.status === 'DANGER');
 
@@ -541,6 +549,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </div>
 
                   <button
+                    onClick={() => {
+                      setNodes(prev => prev.map(n => {
+                        if (n.id === 'node-sohra') {
+                          const newScore = n.riskScore >= 90 ? 84 : 94;
+                          return { ...n, riskScore: newScore, status: 'DANGER' };
+                        }
+                        return n;
+                      }));
+                    }}
+                    className={`px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      critical90Nodes.length > 0
+                        ? 'bg-red-600/30 text-red-300 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse'
+                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-white'
+                    }`}
+                    title="Toggle Level-4 Alert (Risk 94/100) on Sohra"
+                  >
+                    <span>🚨</span>
+                    <span>{critical90Nodes.length > 0 ? 'Risk 90+ Active' : 'Simulate 90+'}</span>
+                  </button>
+
+                  <button
                     onClick={() => setActiveTab('map')}
                     title="Expand Map"
                     className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
@@ -549,6 +578,39 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Critical Alert Level-4 Banner when Risk >= 90 */}
+              {critical90Nodes.length > 0 && (
+                <div className="mb-3 p-3.5 rounded-xl bg-gradient-to-r from-red-950 via-rose-900 to-red-950 border-2 border-red-500 flex flex-wrap items-center justify-between gap-3 shadow-[0_0_30px_rgba(239,68,68,0.5)] animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-red-600 border border-yellow-300 flex items-center justify-center text-white text-lg font-black shadow-lg animate-bounce">
+                      🚨
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-red-600 text-yellow-200 font-black text-[10px] tracking-wider uppercase border border-yellow-400">
+                          CRITICAL LEVEL-4 ALERT (RISK SCORE &ge; 90)
+                        </span>
+                        <span className="text-xs font-black text-white">
+                          {critical90Nodes.map(n => `${n.name}: ${n.riskScore}/100`).join(' · ')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-red-200 font-semibold mt-0.5">
+                        Deep shear displacement (&gt;15mm) & saturation (&gt;90%) exceeded critical threshold! Mandatory immediate evacuation active!
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={onOpenSOS}
+                      className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xl cursor-pointer transition-all hover:scale-105 border border-yellow-300"
+                    >
+                      <PhoneCall className="w-3.5 h-3.5 animate-bounce text-yellow-300" />
+                      DISPATCH LEVEL-4 SOS CALLS
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Leaflet Geographic Map Container */}
               <div className="relative w-full h-[450px] rounded-xl border border-white/5 overflow-hidden bg-slate-950">

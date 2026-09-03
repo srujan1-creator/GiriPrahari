@@ -47,22 +47,22 @@ const DANGER_SLOPES = [
   {
     name: 'Sohra Sector B (Cherrapunji)',
     state: 'Meghalaya',
-    riskScore: 87,
-    status: 'DANGER',
-    creepMm: 14.6,
-    poreWaterPct: 91,
-    rainfall24h: 245,
+    riskScore: 92,
+    status: 'LEVEL-4 CRITICAL DANGER',
+    creepMm: 16.8,
+    poreWaterPct: 96,
+    rainfall24h: 275,
     dialect: 'Khasi & Pnar',
     satellite: 'Sentinel-1 Track-121 (LOS: -35.2 mm/yr)',
   },
   {
     name: 'Mangan North Highway Pass',
     state: 'North Sikkim',
-    riskScore: 89,
-    status: 'CRITICAL DANGER',
-    creepMm: 15.4,
-    poreWaterPct: 95,
-    rainfall24h: 280,
+    riskScore: 94,
+    status: 'LEVEL-4 CRITICAL DANGER',
+    creepMm: 17.5,
+    poreWaterPct: 98,
+    rainfall24h: 295,
     dialect: 'Lepcha & Bhutia',
     satellite: 'Sentinel-1 Track-48 (LOS: -38.6 mm/yr)',
   },
@@ -156,16 +156,30 @@ function sendTelegramAlert(chatId, alertData, callback) {
     if (matched) slope = matched;
   }
 
-  const messageBody = `🚨 <b>GIRI-PRAHARI EMERGENCY LANDSLIDE ALERT</b>\n\n` +
-    (customText ? `${customText}\n\n` : `<b>AUTONOMOUS SENTINEL AI ALERT</b>: Ground creep surge detected in ${slope.state}.\n\n`) +
-    `📞 <b>Target Mobile</b>: <code>${primaryPhoneNumber}</code>\n` +
-    `⚡ <b>AI Risk Engine</b>: <b>${slope.status} (${slope.riskScore}/100)</b>\n\n` +
-    `📍 <b>Sector</b>: <b>${slope.name} (${slope.state})</b>\n` +
-    `🌊 <b>Pore Water Pressure</b>: <b>${slope.poreWaterPct}%</b>\n` +
-    `🏔️ <b>Sub-surface Creep</b>: <b>${slope.creepMm} mm</b>\n` +
-    `🌧️ <b>24h Rainfall Saturation</b>: <b>${slope.rainfall24h} mm</b>\n` +
-    `🗣️ <b>Active Emergency Dialect</b>: <b>${slope.dialect}</b>\n` +
-    `🛰️ <b>Satellite InSAR</b>: <i>${slope.satellite}</i>`;
+  const isLevel4 = slope.riskScore >= 90;
+
+  const messageBody = isLevel4
+    ? `🚨🚨🚨 <b>[CRITICAL LEVEL-4 MASS EVACUATION ALERT]</b>\n\n` +
+      `⚡ <b>MANDATORY EVACUATION: RISK REACHED ${slope.riskScore}/100!</b>\n` +
+      `📍 <b>Location</b>: <b>${slope.name} (${slope.state})</b>\n` +
+      `⚠️ <b>STATUS: LEVEL-4 CRITICAL DANGER — IMMINENT SLOPE COLLAPSE RISK</b>\n\n` +
+      `📞 <b>Target Mobile</b>: <code>${primaryPhoneNumber}</code>\n` +
+      `🌊 <b>Pore Water Pressure</b>: <b>${slope.poreWaterPct}% (SATURATION CRITICAL)</b>\n` +
+      `🏔️ <b>Sub-surface Creep</b>: <b>${slope.creepMm} mm (SHEAR DISPLACEMENT)</b>\n` +
+      `🌧️ <b>24h Rainfall Saturation</b>: <b>${slope.rainfall24h} mm</b>\n` +
+      `🗣️ <b>Active Emergency Dialect</b>: <b>${slope.dialect}</b>\n` +
+      `🛰️ <b>Satellite InSAR</b>: <i>${slope.satellite}</i>\n\n` +
+      `📢 <i>ACTION REQUIRED: Sound village acoustic siren network immediately · Evacuate all residents along the slope line to designated relief shelters!</i>`
+    : `🚨 <b>GIRI-PRAHARI EMERGENCY LANDSLIDE ALERT</b>\n\n` +
+      (customText ? `${customText}\n\n` : `<b>AUTONOMOUS SENTINEL AI ALERT</b>: Ground creep surge detected in ${slope.state}.\n\n`) +
+      `📞 <b>Target Mobile</b>: <code>${primaryPhoneNumber}</code>\n` +
+      `⚡ <b>AI Risk Engine</b>: <b>${slope.status} (${slope.riskScore}/100)</b>\n\n` +
+      `📍 <b>Sector</b>: <b>${slope.name} (${slope.state})</b>\n` +
+      `🌊 <b>Pore Water Pressure</b>: <b>${slope.poreWaterPct}%</b>\n` +
+      `🏔️ <b>Sub-surface Creep</b>: <b>${slope.creepMm} mm</b>\n` +
+      `🌧️ <b>24h Rainfall Saturation</b>: <b>${slope.rainfall24h} mm</b>\n` +
+      `🗣️ <b>Active Emergency Dialect</b>: <b>${slope.dialect}</b>\n` +
+      `🛰️ <b>Satellite InSAR</b>: <i>${slope.satellite}</i>`;
 
   const postData = JSON.stringify({
     chat_id: targetChatId,
@@ -258,17 +272,19 @@ function handleTelegramIncomingMessage(msg) {
 
   // 1. Highest Risk / Most Dangerous Queries
   if (lowerText.includes('highest') || lowerText.includes('most dangerous') || lowerText.includes('max risk') || lowerText.includes('worst')) {
-    replyText = `🔴 <b>HIGHEST LANDSLIDE HAZARD IN NER REGION:</b>\n\n` +
-      `🏆 <b>#1 Highest Risk: Mangan North Highway Pass (Sikkim)</b>\n` +
-      `⚡ <b>Risk Score: 89 / 100 (CRITICAL DANGER)</b>\n` +
-      `🏔️ <b>Sub-surface Creep</b>: 15.4 mm\n` +
-      `🌊 <b>Pore Water Pressure</b>: 95% Saturation\n` +
-      `🌧️ <b>24h Rainfall</b>: 280 mm\n` +
+    replyText = `🚨🚨 <b>HIGHEST LANDSLIDE HAZARD IN NER REGION (LEVEL-4 ALERT):</b>\n\n` +
+      `🔴 <b>#1 CRITICAL LEVEL-4: Mangan North Highway Pass (Sikkim)</b>\n` +
+      `⚡ <b>Risk Score: 94 / 100 (CRITICAL LEVEL-4 MASS EVACUATION)</b>\n` +
+      `🏔️ <b>Sub-surface Creep</b>: 17.5 mm\n` +
+      `🌊 <b>Pore Water Pressure</b>: 98% Saturation\n` +
+      `🌧️ <b>24h Rainfall</b>: 295 mm\n` +
       `🛰️ <b>Sentinel-1 InSAR</b>: Line of sight subsidence -38.6 mm/yr\n` +
       `🗣️ <b>Voice Dialects Active</b>: Lepcha & Bhutia\n\n` +
-      `🥈 <b>#2 Highest Risk: Sohra (Cherrapunji, Meghalaya)</b>\n` +
-      `⚡ <b>Risk Score: 87 / 100 (DANGER)</b> · Creep: 14.6 mm · Rain: 245 mm\n\n` +
-      `⚠️ <b>Evacuation sirens & automated IVR phone calls are active for both sectors!</b>`;
+      `🔴 <b>#2 CRITICAL LEVEL-4: Sohra Sector B (Cherrapunji, Meghalaya)</b>\n` +
+      `⚡ <b>Risk Score: 92 / 100 (CRITICAL LEVEL-4 MASS EVACUATION)</b>\n` +
+      `🏔️ <b>Sub-surface Creep</b>: 16.8 mm · Rain: 275 mm · Saturation: 96%\n` +
+      `🗣️ <b>Voice Dialects Active</b>: Khasi & Pnar\n\n` +
+      `📢 <b>EMERGENCY PROTOCOL: Both sectors have crossed the 90/100 threshold! Automated sirens sounding and mandatory evacuation calls dispatched!</b>`;
   }
   // 2. Lowest Risk / Safest Queries
   else if (lowerText.includes('lowest') || lowerText.includes('safest') || lowerText.includes('safe') && !lowerText.includes('is sohra')) {

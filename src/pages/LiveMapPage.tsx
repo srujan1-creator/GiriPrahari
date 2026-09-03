@@ -12,30 +12,37 @@ interface LiveMapPageProps {
   currentLang: Language;
 }
 
-// Create custom animated Leaflet marker icons
+// Create custom animated Leaflet marker icons with Level-4 Escalation for score >= 90
 const createCustomMarkerIcon = (status: 'SAFE' | 'WATCH' | 'DANGER', score: number, isSelected: boolean) => {
+  const isCritical90 = score >= 90;
+
   const colorClass =
-    status === 'DANGER'
+    isCritical90
+      ? 'bg-gradient-to-r from-red-600 via-rose-700 to-red-600 border-2 border-yellow-300 text-white shadow-[0_0_25px_rgba(239,68,68,1)] animate-bounce font-black'
+      : status === 'DANGER'
       ? 'bg-red-600 border-red-400 text-white shadow-red-900/80'
       : status === 'WATCH'
       ? 'bg-amber-500 border-amber-300 text-slate-950 shadow-amber-900/80'
       : 'bg-emerald-600 border-emerald-400 text-white shadow-emerald-900/80';
 
   const ringClass =
-    status === 'DANGER'
-      ? 'bg-red-500/40 animate-ping'
+    isCritical90
+      ? 'w-14 h-14 bg-red-600/60 animate-ping ring-4 ring-rose-400 -top-3.5 -left-3.5'
+      : status === 'DANGER'
+      ? 'w-10 h-10 bg-red-500/40 animate-ping -top-1 -left-1'
       : status === 'WATCH'
-      ? 'bg-amber-500/30'
-      : 'bg-emerald-500/20';
+      ? 'w-10 h-10 bg-amber-500/30 -top-1 -left-1'
+      : 'w-10 h-10 bg-emerald-500/20 -top-1 -left-1';
 
-  const scaleClass = isSelected ? 'scale-125 z-50 ring-4 ring-white' : 'hover:scale-110';
+  const scaleClass = isSelected ? 'scale-125 z-50 ring-4 ring-white' : isCritical90 ? 'scale-115 z-40' : 'hover:scale-110';
 
   const html = `
     <div class="relative flex items-center justify-center cursor-pointer group transition-transform ${scaleClass}">
-      <div class="w-10 h-10 rounded-full absolute -top-1 -left-1 ${ringClass}"></div>
+      <div class="rounded-full absolute ${ringClass}"></div>
+      ${isCritical90 ? '<div class="w-10 h-10 -top-1.5 -left-1.5 rounded-full absolute bg-rose-500/40 animate-pulse"></div>' : ''}
       <div class="px-2.5 py-1 rounded-xl border-2 font-mono font-black text-xs shadow-2xl flex items-center gap-1.5 whitespace-nowrap ${colorClass}">
-        <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-        <span>${score}</span>
+        <span class="w-2 h-2 rounded-full ${isCritical90 ? 'bg-yellow-300 animate-ping' : 'bg-white animate-pulse'}"></span>
+        <span>${isCritical90 ? '🚨 ' + score + ' EVACUATE' : score}</span>
       </div>
     </div>
   `;
@@ -43,8 +50,8 @@ const createCustomMarkerIcon = (status: 'SAFE' | 'WATCH' | 'DANGER', score: numb
   return L.divIcon({
     html,
     className: 'custom-leaflet-marker',
-    iconSize: [40, 30],
-    iconAnchor: [20, 15],
+    iconSize: isCritical90 ? [84, 30] : [40, 30],
+    iconAnchor: isCritical90 ? [42, 15] : [20, 15],
   });
 };
 
