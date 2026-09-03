@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import {
   Mountain,
@@ -73,6 +73,21 @@ const createCustomMarkerIcon = (status: 'SAFE' | 'WATCH' | 'DANGER', score: numb
   });
 };
 
+// Helper to automatically recalculate Leaflet map canvas dimensions and prevent black screen
+const MapAutoResize = () => {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [map]);
+  return null;
+};
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({
   setActiveTab,
   currentLang,
@@ -81,7 +96,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [nodes, setNodes] = useState<SlopeNode[]>(INITIAL_SLOPE_NODES);
   const alerts = INITIAL_ALERTS;
   const [selectedNode, setSelectedNode] = useState<SlopeNode | null>(null);
-  const [mapMode, setMapMode] = useState<'terrain' | 'satellite'>('terrain');
+  const [mapMode, setMapMode] = useState<'terrain' | 'satellite' | 'carto'>('satellite');
   const [activeChannelFilter, setActiveChannelFilter] = useState<string | null>(null);
   const [explainNode, setExplainNode] = useState<SlopeNode | null>(null);
   const [liveClock, setLiveClock] = useState<string>('');
@@ -508,20 +523,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 <div className="flex items-center gap-2">
                   <div className="bg-slate-900 p-1 rounded-lg border border-slate-700 flex text-xs">
                     <button
-                      onClick={() => setMapMode('terrain')}
-                      className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
-                        mapMode === 'terrain' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      OpenStreetMap Topo
-                    </button>
-                    <button
                       onClick={() => setMapMode('satellite')}
                       className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
                         mapMode === 'satellite' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Esri Satellite Radar
+                      🛰️ Esri Satellite
+                    </button>
+                    <button
+                      onClick={() => setMapMode('terrain')}
+                      className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
+                        mapMode === 'terrain' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      🗺️ OpenStreetMap
+                    </button>
+                    <button
+                      onClick={() => setMapMode('carto')}
+                      className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
+                        mapMode === 'carto' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      🌌 Carto Dark
                     </button>
                   </div>
 
@@ -544,17 +567,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                   className="w-full h-full z-0"
                   style={{ height: '100%', width: '100%', background: '#090D12' }}
                 >
-                  {mapMode === 'terrain' ? (
-                    <TileLayer
-                      attribution='&copy; OpenStreetMap'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                  ) : (
-                    <TileLayer
-                      attribution='Tiles &copy; Esri'
-                      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    />
-                  )}
+                  <MapAutoResize />
+                  <TileLayer
+                    key={mapMode}
+                    attribution={
+                      mapMode === 'satellite'
+                        ? 'Tiles &copy; Esri'
+                        : mapMode === 'carto'
+                        ? '&copy; CartoDB Dark Matter'
+                        : '&copy; OpenStreetMap'
+                    }
+                    url={
+                      mapMode === 'satellite'
+                        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                        : mapMode === 'carto'
+                        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                    }
+                    maxZoom={18}
+                  />
 
                   {/* Connecting Spider Web Mesh Lines */}
                   {meshLines.map((line, idx) => (

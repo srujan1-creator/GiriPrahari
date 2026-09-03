@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, Popup } from 'react-leaflet';
+import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Globe, Search, PhoneCall, X } from 'lucide-react';
 import type { SlopeNode, Language } from '../types';
@@ -48,12 +48,27 @@ const createCustomMarkerIcon = (status: 'SAFE' | 'WATCH' | 'DANGER', score: numb
   });
 };
 
+// Helper to automatically recalculate Leaflet map canvas dimensions and prevent black screen
+const MapAutoResize = () => {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [map]);
+  return null;
+};
+
 export const LiveMapPage: React.FC<LiveMapPageProps> = ({ onOpenSOS, currentLang = 'en' }) => {
   const [nodes] = useState<SlopeNode[]>(INITIAL_SLOPE_NODES);
   const [selectedNode, setSelectedNode] = useState<SlopeNode | null>(INITIAL_SLOPE_NODES[0]); // Default to Sohra
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'DANGER' | 'WATCH' | 'SAFE'>('ALL');
-  const [mapTileMode, setMapTileMode] = useState<'topo' | 'satellite'>('topo');
+  const [mapTileMode, setMapTileMode] = useState<'topo' | 'satellite' | 'carto'>('satellite');
 
   const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
@@ -155,20 +170,28 @@ export const LiveMapPage: React.FC<LiveMapPageProps> = ({ onOpenSOS, currentLang
           {/* Map Layer Switcher */}
           <div className="bg-slate-900 p-1 rounded-lg border border-slate-700 flex text-xs">
             <button
-              onClick={() => setMapTileMode('topo')}
-              className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
-                mapTileMode === 'topo' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              OpenStreetMap Topo
-            </button>
-            <button
               onClick={() => setMapTileMode('satellite')}
               className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
                 mapTileMode === 'satellite' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
               }`}
             >
-              Esri Satellite Radar
+              🛰️ Esri Satellite
+            </button>
+            <button
+              onClick={() => setMapTileMode('topo')}
+              className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
+                mapTileMode === 'topo' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🗺️ OpenStreetMap
+            </button>
+            <button
+              onClick={() => setMapTileMode('carto')}
+              className={`px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer ${
+                mapTileMode === 'carto' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🌌 Carto Dark
             </button>
           </div>
 
@@ -233,17 +256,25 @@ export const LiveMapPage: React.FC<LiveMapPageProps> = ({ onOpenSOS, currentLang
             className="w-full h-full z-0"
             style={{ height: '100%', width: '100%', background: '#090D12' }}
           >
-            {mapTileMode === 'topo' ? (
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-            ) : (
-              <TileLayer
-                attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-              />
-            )}
+            <MapAutoResize />
+            <TileLayer
+              key={mapTileMode}
+              attribution={
+                mapTileMode === 'satellite'
+                  ? 'Tiles &copy; Esri'
+                  : mapTileMode === 'carto'
+                  ? '&copy; CartoDB Dark Matter'
+                  : '&copy; OpenStreetMap'
+              }
+              url={
+                mapTileMode === 'satellite'
+                  ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                  : mapTileMode === 'carto'
+                  ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+                  : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+              }
+              maxZoom={18}
+            />
 
             {/* Connecting Spider Web Mesh Lines */}
             {meshLines.map((line, idx) => (
