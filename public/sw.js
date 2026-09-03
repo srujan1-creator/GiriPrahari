@@ -1,35 +1,33 @@
-// GIRI-PRAHARI Service Worker — Offline & Disaster Blackout Engine
-const CACHE_NAME = 'giri-prahari-offline-v1';
+// GIRI-PRAHARI Service Worker — Offline & Disaster Blackout Engine (v2)
+const CACHE_NAME = 'giri-prahari-v2';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+  '/manifest.json'
 ];
 
 // 1. Install Event: Cache Core App Shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Pre-caching core offline shell assets');
+      console.log('[Service Worker v2] Pre-caching core offline shell assets');
       return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('[Service Worker] Asset pre-cache notice:', err);
+        console.warn('[Service Worker v2] Asset pre-cache notice:', err);
       });
     })
   );
   self.skipWaiting();
 });
 
-// 2. Activate Event: Clean up old caches
+// 2. Activate Event: Wipe old caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
-            console.log('[Service Worker] Deleting old cache:', key);
+            console.log('[Service Worker v2] Deleting obsolete cache:', key);
             return caches.delete(key);
           }
         })
@@ -39,17 +37,22 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// 3. Fetch Event: Network-First with Cache Fallback (Ensures full Airplane Mode operation)
+// 3. Fetch Event: Only intercept same-origin app shell requests
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
-  // Ignore POST requests, Supabase auth, or external non-GET requests
+  // Only intercept GET requests
   if (request.method !== 'GET') return;
+
+  // CRITICAL FIX: NEVER intercept external domains (map tiles from Esri/OSM, Supabase, APIs)
+  // Let the browser fetch map tiles natively without any Service Worker tampering!
+  if (!request.url.startsWith(self.location.origin)) {
+    return;
+  }
 
   event.respondWith(
     fetch(request)
       .then((networkResponse) => {
-        // If response is valid, update local cache
         if (networkResponse && networkResponse.status === 200) {
           const responseClone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -65,7 +68,6 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
 
-        // If navigating to a page offline, serve the cached root index.html
         if (request.mode === 'navigate') {
           const rootCached = await caches.match('/');
           if (rootCached) return rootCached;
@@ -73,7 +75,7 @@ self.addEventListener('fetch', (event) => {
           if (indexCached) return indexCached;
         }
 
-        return new Response('Offline — GIRI-PRAHARI Mesh Cache Active', {
+        return new Response('Offline — GIRI-PRAHARI Cache Active', {
           status: 200,
           headers: { 'Content-Type': 'text/plain' },
         });

@@ -16,11 +16,14 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Register Offline PWA Service Worker
+      // Register Offline PWA Service Worker (v2) with auto-update
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
-            .then((reg) => console.log('[GIRI-PRAHARI PWA] Offline Service Worker active:', reg.scope))
+            .then((reg) => {
+              reg.update();
+              console.log('[GIRI-PRAHARI PWA] Offline Service Worker active:', reg.scope);
+            })
             .catch((err) => console.warn('[GIRI-PRAHARI PWA] Service worker registration notice:', err));
         });
       }
