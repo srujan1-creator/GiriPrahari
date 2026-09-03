@@ -177,10 +177,7 @@ function sendTelegramAlert(chatId, alertData, callback) {
   sendWithRetry(postData, callback);
 }
 
-/**
- * Resilient Telegram Message Sender with Automatic Retry on network hiccups
- */
-function sendTelegramMessage(chatId, text, retries = 3) {
+function sendTelegramMessage(chatId, text) {
   const postData = JSON.stringify({
     chat_id: chatId,
     text: text,
@@ -194,24 +191,23 @@ function sendTelegramMessage(chatId, text, retries = 3) {
     }
   });
 
-  sendWithRetry(postData, (err) => {
-    if (err && retries > 0) {
-      setTimeout(() => sendTelegramMessage(chatId, text, retries - 1), 800);
-    }
-  });
+  sendWithRetry(postData);
 }
 
-function sendWithRetry(postData, callback) {
+function sendWithRetry(postData, callback, retries = 3) {
   const req = https.request({
     hostname: 'api.telegram.org',
     port: 443,
     path: `/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
     method: 'POST',
+    agent: false,
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData),
+      'Connection': 'close',
       'User-Agent': 'GiriPrahari-Bot/2.0',
     },
+    timeout: 15000,
   }, (res) => {
     let body = '';
     res.on('data', chunk => body += chunk);
@@ -221,14 +217,26 @@ function sendWithRetry(postData, callback) {
         if (callback) callback(null, JSON.parse(body || '{}'));
       } else {
         console.error(`[TELEGRAM BOT ERROR ${res.statusCode}] ${body}`);
-        if (callback) callback(new Error(`Status ${res.statusCode}`));
+        if (retries > 0) {
+          setTimeout(() => sendWithRetry(postData, callback, retries - 1), 800);
+        } else if (callback) {
+          callback(new Error(`Status ${res.statusCode}`));
+        }
       }
     });
   });
 
+  req.on('timeout', () => {
+    req.destroy();
+  });
+
   req.on('error', (err) => {
     console.error(`[TELEGRAM REQ ERROR] ${err.message}`);
-    if (callback) callback(err);
+    if (retries > 0) {
+      setTimeout(() => sendWithRetry(postData, callback, retries - 1), 1000);
+    } else if (callback) {
+      callback(err);
+    }
   });
 
   req.write(postData);
@@ -339,9 +347,16 @@ function startTelegramBotListener() {
   console.log(`[TELEGRAM CHATBOT LISTENER ACTIVE] Listening 24/7 for messages on @GiriprahariBot...`);
 
   function poll() {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=20`;
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=10`;
 
-    https.get(url, (res) => {
+    const req = https.get(url, {
+      agent: false,
+      timeout: 25000,
+      headers: {
+        'Connection': 'close',
+        'User-Agent': 'GiriPrahariSentinel/2.0'
+      }
+    }, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
       res.on('end', () => {
@@ -349,19 +364,27 @@ function startTelegramBotListener() {
           const data = JSON.parse(body);
           if (data.ok && Array.isArray(data.result)) {
             data.result.forEach((update) => {
-              lastUpdateId = Math.max(lastUpdateId, update.update_id);
+              if (update.update_id > lastUpdateId) {
+                lastUpdateId = update.update_id;
+              }
               if (update.message && update.message.text) {
                 handleTelegramIncomingMessage(update.message);
               }
             });
           }
-        } catch {
-          // Keep polling
+        } catch (e) {
+          // parse error, ignore and continue
         }
-        setTimeout(poll, 1000);
+        setTimeout(poll, 800);
       });
-    }).on('error', () => {
-      setTimeout(poll, 3000);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+    });
+
+    req.on('error', () => {
+      setTimeout(poll, 2000);
     });
   }
 
