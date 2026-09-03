@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { EmergencySOSModal } from './components/EmergencySOSModal';
@@ -19,8 +19,22 @@ export function App() {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [currentLang, setCurrentLang] = useState<Language>('en');
   const [selectedDialect, setSelectedDialect] = useState<Dialect>(FEATURED_DIALECTS[0]);
-  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+  const [isOfflineMode, setIsOfflineMode] = useState<boolean>(!navigator.onLine);
   const [isSOSOpen, setIsSOSOpen] = useState<boolean>(false);
+
+  // Automatic Airplane Mode / Offline Detection
+  useEffect(() => {
+    const handleOnline = () => setIsOfflineMode(false);
+    const handleOffline = () => setIsOfflineMode(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans selection:bg-blue-500 selection:text-white">
