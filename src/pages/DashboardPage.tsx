@@ -29,7 +29,7 @@ import { ExplainableAIModal } from '../components/ExplainableAIModal';
 import { AutoDialerWidget } from '../components/AutoDialerWidget';
 import { syncNodesWithRealLiveData } from '../services/realDataService';
 import { logContinuousTelemetry, getContinuousTelemetry, exportTelemetryCSV, type TelemetryRecord } from '../services/supabaseClient';
-import { generateComprehensiveTelemetry, streamAllMultiSignalDataToDatabase, type ComprehensiveNodeTelemetry } from '../services/unifiedDataPipeline';
+import { generateComprehensiveTelemetry, streamAllMultiSignalDataToDatabase, getInitialComprehensiveTelemetry, type ComprehensiveNodeTelemetry } from '../services/unifiedDataPipeline';
 
 interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
@@ -93,7 +93,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [selectedDataTab, setSelectedDataTab] = useState<'all' | 'isro' | 'satellite' | 'ground' | 'weather' | 'ai'>('all');
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryRecord[]>(() => getContinuousTelemetry());
-  const [multiSignalData, setMultiSignalData] = useState<ComprehensiveNodeTelemetry[]>([]);
+  const [multiSignalData, setMultiSignalData] = useState<ComprehensiveNodeTelemetry[]>(() => getInitialComprehensiveTelemetry());
 
   const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
