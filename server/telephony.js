@@ -362,15 +362,28 @@ function startTelegramBotListener() {
 
   console.log(`[TELEGRAM CHATBOT LISTENER ACTIVE] Listening 24/7 for messages on @GiriprahariBot...`);
 
+  let isPolling = false;
+
   function poll() {
+    if (isPolling) return;
+    isPolling = true;
+
+    let hasScheduled = false;
+    const scheduleNext = (delay = 800) => {
+      if (hasScheduled) return;
+      hasScheduled = true;
+      isPolling = false;
+      setTimeout(poll, delay);
+    };
+
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=10`;
 
     const req = https.get(url, {
       agent: false,
-      timeout: 25000,
+      timeout: 20000,
       headers: {
         'Connection': 'close',
-        'User-Agent': 'GiriPrahariSentinel/2.0'
+        'User-Agent': 'GiriPrahariSentinel/3.0'
       }
     }, (res) => {
       let body = '';
@@ -389,18 +402,26 @@ function startTelegramBotListener() {
             });
           }
         } catch (e) {
-          // parse error, ignore and continue
+          // ignore parse errors
         }
-        setTimeout(poll, 800);
+        scheduleNext(500);
+      });
+      res.on('error', () => {
+        scheduleNext(1500);
       });
     });
 
     req.on('timeout', () => {
       req.destroy();
+      scheduleNext(1000);
     });
 
     req.on('error', () => {
-      setTimeout(poll, 2000);
+      scheduleNext(1500);
+    });
+
+    req.on('close', () => {
+      scheduleNext(1000);
     });
   }
 
