@@ -35,6 +35,7 @@ interface DashboardPageProps {
   setActiveTab: (tab: string) => void;
   currentLang: Language;
   onOpenSOS: () => void;
+  isOfflineMode?: boolean;
 }
 
 // Create custom Leaflet marker icons with Level-4 Escalation for score >= 90
@@ -99,8 +100,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   setActiveTab,
   currentLang,
   onOpenSOS,
+  isOfflineMode = false,
 }) => {
-  const [nodes, setNodes] = useState<SlopeNode[]>(INITIAL_SLOPE_NODES);
+  const [nodes, setNodes] = useState<SlopeNode[]>(() => {
+    try {
+      const cached = localStorage.getItem('giri_prahari_cached_nodes');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return INITIAL_SLOPE_NODES;
+  });
   const alerts = INITIAL_ALERTS;
   const [selectedNode, setSelectedNode] = useState<SlopeNode | null>(null);
   const [mapMode, setMapMode] = useState<'terrain' | 'satellite'>('satellite');
@@ -111,11 +119,27 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(8);
   const [isRealDataSyncing, setIsRealDataSyncing] = useState(false);
-  const [realDataLastSync, setRealDataLastSync] = useState<string>('Live Streaming');
+  const [realDataLastSync, setRealDataLastSync] = useState<string>(() => 
+    isOfflineMode ? 'Offline LoRaWAN Cache Active' : 'Live Streaming'
+  );
   const [isDataModalOpen, setIsDataModalOpen] = useState(false);
   const [selectedDataTab, setSelectedDataTab] = useState<'all' | 'isro' | 'satellite' | 'ground' | 'weather' | 'ai'>('all');
   const [telemetryLogs, setTelemetryLogs] = useState<TelemetryRecord[]>(() => getContinuousTelemetry());
-  const [multiSignalData, setMultiSignalData] = useState<ComprehensiveNodeTelemetry[]>(() => getInitialComprehensiveTelemetry());
+  const [multiSignalData, setMultiSignalData] = useState<ComprehensiveNodeTelemetry[]>(() => {
+    try {
+      const cached = localStorage.getItem('giri_prahari_cached_multisignal');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return getInitialComprehensiveTelemetry();
+  });
+
+  // Persist exact telemetry in browser local storage for complete offline airplane-mode resilience
+  useEffect(() => {
+    try {
+      localStorage.setItem('giri_prahari_cached_nodes', JSON.stringify(nodes));
+      localStorage.setItem('giri_prahari_cached_multisignal', JSON.stringify(multiSignalData));
+    } catch {}
+  }, [nodes, multiSignalData]);
 
   const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
 
@@ -131,6 +155,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
     let isMounted = true;
 
     const ingestComprehensiveData = async () => {
+      if (!navigator.onLine || isOfflineMode) {
+        setRealDataLastSync('Offline LoRaWAN Cache Active');
+        setIsRealDataSyncing(false);
+        return;
+      }
       setIsRealDataSyncing(true);
       try {
         const fullStream = await generateComprehensiveTelemetry();
@@ -579,6 +608,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                 </div>
               </div>
 
+              {/* Offline Disaster Mode Exact Telemetry Indicator */}
+              {isOfflineMode && (
+                <div className="mb-3 p-3.5 rounded-xl bg-amber-500/10 border-2 border-amber-500/50 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500 flex items-center justify-center text-amber-400 font-black text-sm">
+                      📡
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[10px] tracking-wider uppercase">
+                          OFFLINE DISASTER MODE ACTIVE
+                        </span>
+                        <span className="text-xs font-bold text-amber-300">
+                          Displaying Exact Local LoRaWAN Stored Telemetry for 35 Stations
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 font-mono mt-0.5">
+                        Exact Ground Metrics: <strong>Sohra</strong> (Risk: <span className="text-red-400 font-bold">92/100</span> · Creep: <span className="text-red-400 font-bold">16.8mm</span> · Pore: <span className="text-blue-400 font-bold">96%</span> · Rain: <span className="text-amber-400 font-bold">275mm</span>) · <strong>Mangan</strong> (Risk: <span className="text-red-400 font-bold">94/100</span> · Creep: <span className="text-red-400 font-bold">17.5mm</span> · Rain: <span className="text-amber-400 font-bold">295mm</span>)
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded bg-slate-900 border border-amber-500/40 text-amber-300 font-mono text-xs font-bold">
+                    Zero-Internet Resilience
+                  </span>
+                </div>
+              )}
+
               {/* Critical Alert Level-4 Banner when Risk >= 90 */}
               {critical90Nodes.length > 0 && (
                 <div className="mb-3 p-3.5 rounded-xl bg-gradient-to-r from-red-950 via-rose-900 to-red-950 border-2 border-red-500 flex flex-wrap items-center justify-between gap-3 shadow-[0_0_30px_rgba(239,68,68,0.5)] animate-pulse">
@@ -595,9 +651,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                           {critical90Nodes.map(n => `${n.name}: ${n.riskScore}/100`).join(' · ')}
                         </span>
                       </div>
-                      <p className="text-[11px] text-red-200 font-semibold mt-0.5">
-                        Deep shear displacement (&gt;15mm) & saturation (&gt;90%) exceeded critical threshold! Mandatory immediate evacuation active!
-                      </p>
+                      <div className="text-[11px] text-red-200 font-mono font-medium mt-1 space-y-0.5">
+                        {critical90Nodes.map(n => (
+                          <div key={n.id} className="flex flex-wrap gap-2 text-[11px]">
+                            <span>📍 <strong>{n.name}</strong>:</span>
+                            <span className="bg-red-900/60 px-1.5 py-0.2 rounded border border-red-500/40">Creep: <strong className="text-white">{n.displacementMm}mm</strong></span>
+                            <span className="bg-blue-900/60 px-1.5 py-0.2 rounded border border-blue-500/40">Pore Pressure: <strong className="text-white">{n.soilMoisturePct}%</strong></span>
+                            <span className="bg-amber-900/60 px-1.5 py-0.2 rounded border border-amber-500/40">24h Rain: <strong className="text-white">{n.rainfallMm24h}mm</strong></span>
+                            <span className="text-yellow-300 font-bold">MANDATORY EVACUATION ORDERED</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

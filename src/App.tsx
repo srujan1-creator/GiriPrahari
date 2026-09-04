@@ -65,6 +65,7 @@ export function App() {
             setActiveTab={setActiveTab}
             currentLang={currentLang}
             onOpenSOS={() => setIsSOSOpen(true)}
+            isOfflineMode={isOfflineMode}
           />
         )}
         {activeTab === 'map' && (
